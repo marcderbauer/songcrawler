@@ -3,6 +3,7 @@ Crawl Spotify and Genius for all the songs of your favourite artist!
 
 ## About
 Add motivation?
+[Spotify audio features reference](https://developer.spotify.com/documentation/web-api/reference/tracks/get-audio-features/)
 
 ## How It Works
 Explain :)
