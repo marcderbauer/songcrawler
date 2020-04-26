@@ -3,6 +3,7 @@ import os
 import re
 
 import spotipy
+import lyricsgenius
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -222,7 +223,11 @@ class Song(object):
         self._tempo = audio_features["tempo"]
 
     def get_genius_lyrics(self):
-        #TODO: Do something
+        genius_song = genius.search_song(self.name, artist= self.artists[0],get_full_info=False)
+        if genius_song == None:
+            # for multiple artists on one song, if it doesn't find it with song artist, try album artist
+            genius_song = genius.search_song(self.name, artist=input_artist,get_full_info=False)
+        self.lyrics = genius_song.lyrics
         return
 
 
@@ -233,7 +238,7 @@ class Song(object):
 # Get envvars
 client_id = os.environ["SPOTIFY_CLIENT_ID"]
 client_secret = os.environ["SPOTIFY_CLIENT_SECRET"]
-# genius_token = os.environ["GENIUS_TOKEN"]
+genius_token = os.environ["GENIUS_TOKEN"]
 
 # Artist
 input_artist = "Kid Cudi" # TODO: find a way not to hardcode, maybe as cl-argument?
@@ -242,6 +247,9 @@ input_artist_uri = 'spotify:artist:0fA0VVWsXO9YnASrzqfmYu'
 # Initialize spotipy client
 client_credentials_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
 spotify = spotipy.Spotify(client_credentials_manager=client_credentials_manager) # Spotify object to access API
+
+# Initialize Genius
+genius = lyricsgenius.Genius(genius_token)
 
 # Initialize lemmatizer
 lemmatizer = WordNetLemmatizer()
@@ -286,8 +294,30 @@ for album in artist.albums: # artist.albums are album objects
 
     for spotify_song in spotify_album:
         # TODO: check if song exists already, don't just overwrite
-        
+        # TODO: better to get lyrics in bulk?
+        # TODO: Process lyrics
+        # ======>>> seperate class? in seperate file?
+        # TODO: get info on an album basis (TF_IDF, most used words, avg score for each spotify feature...)
+        # TODO: make errors more visible, don't clutter up console
+
         song = Song.from_spotify_song(spotify_song) # convert to song object from spotify song
         song.get_audio_features()
-        song.get_genius_lyrics() # TODO: fetch song lyrics
-        album.addsong(song) # add song object to list of songs
+        song.get_genius_lyrics() # TODO: process lyrics, add optional flag for it
+        album.addsong(song) 
+        songpath = album_path + "/" + song.name
+        if not os.path.isfile(songpath):
+            print("song does not exist, creating song %s" % song.name)
+            try:
+                #TODO: Dump JSON
+                song_json = json.dumps(song.__dict__, indent=4)
+                with open (songpath, "w") as f:
+                    f.write(song_json)
+
+            except OSError: #TODO: right error?
+                print("Failed to save song %s." % song.name)
+            else:
+                print("Successfully saved song %s" %song.name)
+        else: 
+            #TODO: Ask to overwrite
+            print("TODO...")
+
