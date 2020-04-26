@@ -151,6 +151,50 @@ class Song(object):
     @property
     def explicit(self):
         return self._explicit
+    
+    @property
+    def danceability(self):
+        return self._danceablilty
+    
+    @property
+    def energy(self):
+        return self._energy
+
+    @property
+    def key(self):
+        return self._key
+    
+    @property
+    def loudness(self):
+        return self._loudness
+    
+    @property
+    def mode(self):
+        return self._mode
+    
+    @property
+    def speechiness(self):
+        return self._speechiness
+    
+    @property
+    def acousticness(self):
+        return self._acousticness
+
+    @property
+    def instrumentalness(self):
+        return self._instrumentalness
+    
+    @property
+    def liveness(self):
+        return self._liveness
+
+    @property
+    def valence(self):
+        return self._valence
+    
+    @property
+    def tempo(self):
+        return self._tempo
 
     @classmethod
     def from_spotify_song(cls,spotify_song):
@@ -163,7 +207,21 @@ class Song(object):
                     explicit = spotify_song["explicit"]
                     )
     
-    def get_genius_lyrics(self, song):
+    def get_audio_features(self):
+        audio_features = spotify.audio_features(self.uri)[0]
+        self._danceablilty = audio_features["danceability"]
+        self._energy = audio_features["energy"]
+        self._key = audio_features["key"]
+        self._loudness = audio_features["loudness"]
+        self._mode = audio_features["mode"]
+        self._speechiness = audio_features["speechiness"]
+        self._acousticness = audio_features["acousticness"]
+        self._instrumentalness = audio_features["instrumentalness"]
+        self._liveness = audio_features["liveness"]
+        self._valence = audio_features["valence"]
+        self._tempo = audio_features["tempo"]
+
+    def get_genius_lyrics(self):
         #TODO: Do something
         return
 
@@ -175,7 +233,7 @@ class Song(object):
 # Get envvars
 client_id = os.environ["SPOTIFY_CLIENT_ID"]
 client_secret = os.environ["SPOTIFY_CLIENT_SECRET"]
-genius_token = os.environ["GENIUS_TOKEN"]
+# genius_token = os.environ["GENIUS_TOKEN"]
 
 # Artist
 input_artist = "Kid Cudi" # TODO: find a way not to hardcode, maybe as cl-argument?
@@ -230,5 +288,6 @@ for album in artist.albums: # artist.albums are album objects
         # TODO: check if song exists already, don't just overwrite
         
         song = Song.from_spotify_song(spotify_song) # convert to song object from spotify song
+        song.get_audio_features()
+        song.get_genius_lyrics() # TODO: fetch song lyrics
         album.addsong(song) # add song object to list of songs
-        song.get_genius_lyrics(song) # TODO: fetch song lyrics
