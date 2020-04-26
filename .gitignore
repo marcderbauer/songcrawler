@@ -3,3 +3,4 @@
 songcrawler/__pycache__/
 songcrawler/test/
 songcrawler/lyricgenius/
+songcrawler/data
