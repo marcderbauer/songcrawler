@@ -1,0 +1,4 @@
+sc/
+songcrawler/__pycache__/
+songcrawler/test/
+songcrawler/api
