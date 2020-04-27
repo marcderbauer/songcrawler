@@ -1,12 +1,14 @@
 import json
 import os
 import re
+import string
 
-import spotipy
 import lyricsgenius
+import spotipy
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
 from spotipy.oauth2 import SpotifyClientCredentials
+
 
 class Artist(object):
     """ An Artist based on the Info provided by the Spotify API
@@ -223,12 +225,46 @@ class Song(object):
         self._tempo = audio_features["tempo"]
 
     def get_genius_lyrics(self):
-        genius_song = genius.search_song(self.name, artist= self.artists[0],get_full_info=False)
-        if genius_song == None:
-            # for multiple artists on one song, if it doesn't find it with song artist, try album artist
-            genius_song = genius.search_song(self.name, artist=input_artist,get_full_info=False)
-        self.lyrics = genius_song.lyrics
+
+        # for multiple artists on one song, if it doesn't find it with song artist, try album artist
+        # TODO: use "Try except framework"
+        for artist in self.artists:
+            genius_song = genius.search_song(self.name, artist=artist,get_full_info=False)
+        
+            # TODO: better way to handle error messages?
+            try:
+                self.lyrics = genius_song.lyrics
+                return
+            except:
+                continue
+        
+        print("\nNo lyrics found for song %s" % self.name)
+        self.lyrics = " "
         return
+            
+            
+
+    #######################
+    # UNUSED!!!!!!!!!!!!!!!
+    #######################
+    def process_lyrics(self):
+        # TODO: Do in a seperate program
+        # TODO: Tokenize, lemmatize, wordfreq list
+        self.tokens = [word for word in word_tokenize(self.lyrics) if word.isalpha()]
+        self.lemmas = [lemmatizer.lemmatize(word.lower()) for word in self.tokens]
+
+
+
+
+
+# TODO: check if song exists already, don't just overwrite
+# TODO: better to get lyrics in bulk?
+# TODO: Process lyrics
+# ======>>> seperate class? in seperate file?
+# TODO: get info on an album basis (TF_IDF, most used words, avg score for each spotify feature...)
+# TODO: create a folder for all the statistics and one for all the lyrics of any given album
+# TODO: make errors more visible, don't clutter up console
+
 
 
 #################################
@@ -240,10 +276,6 @@ client_id = os.environ["SPOTIFY_CLIENT_ID"]
 client_secret = os.environ["SPOTIFY_CLIENT_SECRET"]
 genius_token = os.environ["GENIUS_TOKEN"]
 
-# Artist
-input_artist = "Kid Cudi" # TODO: find a way not to hardcode, maybe as cl-argument?
-input_artist_uri = 'spotify:artist:0fA0VVWsXO9YnASrzqfmYu'
-
 # Initialize spotipy client
 client_credentials_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
 spotify = spotipy.Spotify(client_credentials_manager=client_credentials_manager) # Spotify object to access API
@@ -252,72 +284,82 @@ spotify = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 genius = lyricsgenius.Genius(genius_token)
 
 # Initialize lemmatizer
-lemmatizer = WordNetLemmatizer()
+lemmatizer = WordNetLemmatizer() 
 
-# Setup correct path
-os.chdir("songcrawler")
-input_artist_path = "data/" + input_artist.replace(" ","_") 
 
-# Check if artist directory exists already
-if not os.path.exists(input_artist_path):
-    print("Artist folder does not exist, creating folder %s." % input_artist_path)
-    try:
-        os.mkdir(input_artist_path)
-    except OSError:
-        print ("Creation of the directory %s failed" % input_artist_path)
+def crawl_songs(input_artist_uri, overwrite = True, get_lyrics = True):
+    # Instantiate artist object
+    artist = Artist(input_artist_uri)
+
+    # Setup correct path
+    os.chdir("songcrawler")
+    input_artist_path = "data/" + artist.name.replace(" ","_")
+
+    # Check if artist directory exists already
+    if not os.path.exists(input_artist_path):
+        print("Artist folder does not exist, creating folder %s." % input_artist_path)
+        try:
+            os.mkdir(input_artist_path)
+        except OSError:
+            print ("Creation of the directory %s failed" % input_artist_path)
+        else:
+            print ("Successfully created the directory %s \n" % input_artist_path)
     else:
-        print ("Successfully created the directory %s " % input_artist_path)
-else:
-    print(input_artist_path + " directory exists already. Overwrite?")
-    # TODO: Ask if overwrite fine
+        print(input_artist_path + " directory exists already. Overwrite?")
+        if overwrite == True:
+            # TODO: overwrite album
+            pass
 
-# Instantiate artist object
-artist = Artist(input_artist_uri)
+    for album in artist.albums: # iterate through album objects
+        album_path = input_artist_path + "/" + album.name
 
-for album in artist.albums: # artist.albums are album objects
-    album_path = input_artist_path + "/" + album.name
+        # Check if album path exists
+        if not os.path.exists(album_path):
+                print("Folder %s does not exist, creating folder..." % album_path)
+                try:
+                    os.mkdir(album_path)
+                except OSError:
+                    print ("Creation of the directory %s failed" % album_path)
+                else:
+                    print ("Successfully created the directory %s \n " % album_path)
+        else:
+            print(album_path + " exists")
+            # TODO: ask if overwrite fine?
 
-    # Check if album path exists
-    if not os.path.exists(album_path):
-            print("album folder does not exist, creating folder %s." % album_path)
-            try:
-                os.mkdir(album_path)
-            except OSError:
-                print ("Creation of the directory %s failed" % album_path)
-            else:
-                print ("Successfully created the directory %s " % album_path)
-    else:
-        print(album_path + " exists")
-        # TODO: ask if overwrite fine?
-        
-    spotify_album = spotify.album(album.uri)["tracks"]["items"]
+        spotify_album = spotify.album(album.uri)["tracks"]["items"]
 
-    for spotify_song in spotify_album:
-        # TODO: check if song exists already, don't just overwrite
-        # TODO: better to get lyrics in bulk?
-        # TODO: Process lyrics
-        # ======>>> seperate class? in seperate file?
-        # TODO: get info on an album basis (TF_IDF, most used words, avg score for each spotify feature...)
-        # TODO: make errors more visible, don't clutter up console
+        for spotify_song in spotify_album:
+            
+            if re.search("edit(ed)?|clean|remix", spotify_song["name"], re.IGNORECASE): # filter for edited versions
+                # TODO: improve match pattern, also match clean
+                continue
 
-        song = Song.from_spotify_song(spotify_song) # convert to song object from spotify song
-        song.get_audio_features()
-        song.get_genius_lyrics() # TODO: process lyrics, add optional flag for it
-        album.addsong(song) 
-        songpath = album_path + "/" + song.name
-        if not os.path.isfile(songpath):
-            print("song does not exist, creating song %s" % song.name)
-            try:
-                #TODO: Dump JSON
-                song_json = json.dumps(song.__dict__, indent=4)
-                with open (songpath, "w") as f:
-                    f.write(song_json)
+            song = Song.from_spotify_song(spotify_song) # convert to song object from spotify song
+            album.addsong(song)
+            
+            songpath = album_path + "/" + song.name.translate(str.maketrans('', '', string.punctuation))
+            if not os.path.isfile(songpath):
+                try:
+                    # Get song info
+                    song.get_audio_features()
+                    if get_lyrics == True:
+                        song.get_genius_lyrics()
+                    else:
+                        print(song.name, end=" ")
 
-            except OSError: #TODO: right error?
-                print("Failed to save song %s." % song.name)
-            else:
-                print("Successfully saved song %s" %song.name)
-        else: 
-            #TODO: Ask to overwrite
-            print("TODO...")
+                    # Write to file
+                    song_json = json.dumps(song.__dict__, indent=4)
+                    with open (songpath, "w") as f:
+                        f.write(song_json)
 
+                except OSError: #TODO: right error?
+                    print("\nFailed to save song %s.\n" % song.name)
+            else: 
+                #TODO: Ask to overwrite
+                continue
+
+if __name__ == "__main__":
+    #input_artist = "Kanye" # TODO: find a way not to hardcode, maybe as cl-argument?
+    input_artist_uri = 'spotify:artist:5K4W6rqBFWDnAN6FQUkS6x'
+
+    crawl_songs(input_artist_uri, overwrite=False, get_lyrics=True)
