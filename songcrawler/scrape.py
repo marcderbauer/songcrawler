@@ -24,7 +24,7 @@ class Artist(object):
         self._id = spotify_artist_info["id"]
         self._genres = spotify_artist_info["genres"]
         self._albums = self.get_spotify_albums(artist_uri)
-        self.__type__ = "song"
+        self.__type__ = "song" # what was going on here?
     
     @property
     def name(self):
@@ -116,8 +116,9 @@ class Album(object):
         # Takes song instance and adds it to list of songs
         self._songs.append(song)
     
-    def get_single_album(whatever_input):
+    def get_single_album(self, whatever_input):
         # TODO: implement
+        print(whatever_input)
         pass
 
 class Song(object):
@@ -224,6 +225,7 @@ class Song(object):
         return cls(**json_dict)
 
     def to_json(self,json_path):
+        #TODO: Make independent from Song Class
         if not os.path.splitext(json_path)[1] == ".json": 
             json_path += ".json"
             
@@ -264,9 +266,6 @@ class Song(object):
                 genius_song = genius.search_song(self.name, artist=artist, get_full_info=False)
             try:
                 self.lyrics = genius_song.lyrics
-                if genius_song == None:
-                    # Does a weird loop sometimes ???
-                    return "No lyrics found for song %s,\n" % self.name
                 return
             except:
                 continue
@@ -277,6 +276,34 @@ class Song(object):
     
     def set_lyrics(self, lyrics):
         self.lyrics = lyrics
+
+class Error(object): # DO I NEED THIS? In the end it doesn't hurt i guess
+    def __init__(self, error_type, name, uri = None, songpath=None, album_name=None):
+        self._error_type = error_type
+        self._name = name
+        self._uri = uri
+        self._songpath = songpath
+        self._album_name = album_name
+
+    @property
+    def error_type(self):
+        return self._error_type
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def uri(self):
+        return self._uri
+    
+    @property
+    def songpath(self):
+        return(self._songpath)
+    
+    @property
+    def album_name(self):
+        return(self._album_name)
 
 
 # TODO: check if song exists already, don't just overwrite
@@ -299,7 +326,7 @@ spotify = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 # Initialize Genius
 genius = lyricsgenius.Genius(genius_token)
 
-def get_single_song(song_uri):
+def get_single_song(song_uri, error_file = None):
     """
     gets single song and creates song object with audio features and lyrics
     """
@@ -312,29 +339,33 @@ def get_single_song(song_uri):
         # TODO: maybe move to get_genius_lyrics ?
         new_name = re.sub(r" *(\(.*\)|feat\.?.*|ft\..*)", "", song.name)
         #song.set_name(new_name) # TODO: Better: don't change name, give name as an argument or move to get_genius_lyrics?
-        if song.get_genius_lyrics(name=new_name) != None:\
+        if song.get_genius_lyrics(name=new_name) != None:
+            if error_file:
+                error = Error("MissingLyricsError", song.name, song_uri)
+                error_file.append(error)
             print("Couldn get lyrics for %s" % song.name)
 
     return song
 
 
-def crawl_songs(input_artist_uri, overwrite = True, get_lyrics = True):
+def crawl_songs(input_artist_uri, overwrite = True, get_lyrics = True, regex_filter = "edit(ed)?|clean|remix"):
     """
     Crawls Spotify for audio features and Genius for lyrics
     Creates a Artist folder with album subfolders, each containing the respective songs in JSON format
-    Returns the artist folder path upon completition
+    Returns the artist folder path and the artists name upon completition.
+    #TODO: Find a more elegant way than returning those.
     """
     # Instantiate artist object
     artist = Artist(input_artist_uri)
 
     # Setup correct path
-    #os.chdir("songcrawler") # TODO: include in input_artist_path ?
     input_artist_path = "songcrawler/data/" + artist.name.replace(" ","_")
+    lyrics_path = os.path.join(input_artist_path, "lyrics")
 
     ####FOR DEBUGGING#########
-    #return input_artist_path
+    #return input_artist_path, artist.name
 
-    errors = []
+    errors_all = []
 
     # Check if artist directory exists already
     if not os.path.exists(input_artist_path):
@@ -342,7 +373,8 @@ def crawl_songs(input_artist_uri, overwrite = True, get_lyrics = True):
         try:
             os.mkdir(input_artist_path)
         except OSError:
-            errors.append((artist.name, "error creating artist"))
+            error = Error("ArtistCreationError", artist.name, artist._uri)
+            errors_all.append(error)
             print ("Creation of the directory %s failed" % input_artist_path)
         else:
             print ("Successfully created the directory %s \n" % input_artist_path)
@@ -351,9 +383,27 @@ def crawl_songs(input_artist_uri, overwrite = True, get_lyrics = True):
         if overwrite == True:
             # TODO: overwrite album
             pass
+    
+    # Check if lyrics directory exists already
+    if not os.path.exists(lyrics_path):
+        print("Lyrics folder does not exist, creating folder %s." % lyrics_path)
+        try:
+            os.mkdir(lyrics_path)
+        except OSError:
+            error = Error("LyricPathCreationError", lyrics_path)
+            errors_all.append(error)
+            print ("Creation of the directory %s failed" % lyrics_path)
+        else:
+            print ("Successfully created the directory %s \n" % lyrics_path)
+    else:
+        print(lyrics_path + " directory exists already. Overwrite?")
+        if overwrite == True:
+            # TODO: overwrite lyrics path
+            pass
 
     for album in artist.albums: # iterate through album objects
-        album_path = input_artist_path + "/" + album.name
+        album_path = os.path.join(input_artist_path, album.name)
+        album_lyrics_all = {} #songname to json
 
         # Check if album path exists
         if not os.path.exists(album_path):
@@ -361,7 +411,8 @@ def crawl_songs(input_artist_uri, overwrite = True, get_lyrics = True):
                 try:
                     os.mkdir(album_path)
                 except OSError:
-                    errors.append((album.name, "error creating album"))
+                    error = Error("AlbumCreationError", album.name, album.uri)
+                    errors_all.append(error)
                     print ("Creation of the directory %s failed" % album_path)
                 else:
                     print ("Successfully created the directory %s \n " % album_path)
@@ -378,7 +429,7 @@ def crawl_songs(input_artist_uri, overwrite = True, get_lyrics = True):
 
         for spotify_song in spotify_album:
             
-            if re.search("edit(ed)?|clean|remix", spotify_song["name"], re.IGNORECASE): # filter for edited versions
+            if re.search(regex_filter, spotify_song["name"], re.IGNORECASE): # filter for edited versions
                 # TODO: improve match pattern
                 print("Skipping song: %s" % spotify_song["name"])
                 continue
@@ -387,7 +438,7 @@ def crawl_songs(input_artist_uri, overwrite = True, get_lyrics = True):
             song.album_name = album.name
             album.addsong(song)
             
-            songpath = album_path + "/" + song.name.translate(str.maketrans('', '', string.punctuation))
+            songpath = album_path + "/" + song.name.translate(str.maketrans('', '', string.punctuation)) # Remove Punctuation
             if not os.path.isfile(songpath):
                 try:
                     # Get song info
@@ -395,27 +446,37 @@ def crawl_songs(input_artist_uri, overwrite = True, get_lyrics = True):
                     if get_lyrics == True:
                         if song.get_genius_lyrics() != None: # Ugly solution, but it works, maybe use a for loop in range 3?
                             if song.get_genius_lyrics() != None: # Try again, sometimes takes more than one try
-                                errors.append((song.name, song.uri, "missing lyrics"))
+                                error = Error("MissingLyricsError",song.name, song.uri, songpath, album.name)
+                                errors_all.append(error)
                     else:
                         print(song.name, end=" ")
-
+                    
+                    album_lyrics_all[song.name] =  song.lyrics # Save song lyrics seperatelty
+                    del song.lyrics
                     # Write to file
                     song.to_json(songpath + ".json")
 
                 except OSError:
-                    errors.append((song.name, "OSError"))
+                    error = Error("SaveSongError", song.name, song.uri)
+                    errors_all.append(error)
                     print("\nFailed to save song %s.\n" % song.name)
             else: 
                 #TODO: Ask to overwrite
                 continue
     
-    with open("errors.txt", "w") as error_file:
-        error_file.write(str(errors))
-        print(errors)
+        # Save album_lyrics_all_path to json
+        album_lyrics_all_json = json.dumps(album_lyrics_all, indent=4)
+        with open(os.path.join(lyrics_path,(album.name + ".json")), "w" ) as album_lyrics_all_file:
+            album_lyrics_all_file.write(album_lyrics_all_json)
 
-    return input_artist_path
 
-def find_missing_lyrics(errors=None):
+    with open("errors.json", "w") as error_file: #TODO: turn into method: Error.write_errors?
+        json_string = json.dumps([error.__dict__ for error in errors_all], indent=4)
+        error_file.write(json_string)
+
+    return input_artist_path, artist.name
+
+def find_missing_lyrics(artist_name,errors_file=None,tries=5):
     """
     Takes a list of tuples with the songname, the uri and the error type.
     Attempts to fix the missing Lyrics.
@@ -426,15 +487,42 @@ def find_missing_lyrics(errors=None):
     TODO: Remove dependencies and restructure parts of the program...
     """
 
-    if errors == None:
-        errors = "songcrawler/errors.txt"
-    
-    # TODO: Fill out rest of Function
-    # TODO: Use Glob to find songs with errors
-    #       Alternatively: Change Error Messages, so they include the songpath        
+    #########################################
+   #TODO: Add error messages!!!
+   ##########################################
+    input_artist_path = "songcrawler/data/" + artist_name.replace(" ","_")
+    lyrics_path = os.path.join(input_artist_path, "lyrics")
+
+    for filename in os.listdir(lyrics_path):
+        if filename.endswith(".json"):
+            # Iterate through songs
+            album_lyrics_all_file = open (os.path.join(lyrics_path,filename), "r+")
+            album_lyrics_all = json.load(album_lyrics_all_file)
+            for song_name, lyrics in album_lyrics_all.items():
+                if lyrics == None:
+                    # Fix missing lyrics
+                    for i in range (0,tries):
+                        genius_song = genius.search_song(song_name, artist=artist_name, get_full_info=False)
+                        try:
+                            album_lyrics_all[song_name] = genius_song.lyrics
+                            i += 0 #just to silence the warning...
+                            break
+                        except:
+                            continue
+                            
+            #Delete previous contents and write again
+            album_lyrics_all_file.seek(0)
+            album_lyrics_all_file.truncate()
+            album_lyrics_all_json = json.dumps(album_lyrics_all, indent=4)
+            album_lyrics_all_file.write(album_lyrics_all_json)
+            album_lyrics_all_file.close()
+            
+    return
 
 
-# TODO: Change how folders are managed, don't change dir to songcrawler...
+if __name__ == "__main__":
+    find_missing_lyrics("FKA twigs")
+
 # TODO: Save artist level info in artist folder
 # TODO: average songs
 # TODO: add function get_playlist(playlist_uri)
