@@ -363,7 +363,7 @@ def crawl_songs(input_artist_uri, overwrite = True, get_lyrics = True, regex_fil
     lyrics_path = os.path.join(input_artist_path, "lyrics")
 
     ####FOR DEBUGGING#########
-    #return input_artist_path, artist.name
+    return input_artist_path, artist.name
 
     errors_all = []
 
@@ -451,15 +451,23 @@ def crawl_songs(input_artist_uri, overwrite = True, get_lyrics = True, regex_fil
                     else:
                         print(song.name, end=" ")
                     
-                    album_lyrics_all[song.name] =  song.lyrics # Save song lyrics seperatelty
-                    del song.lyrics
-                    # Write to file
-                    song.to_json(songpath + ".json")
 
+                # TODO: CLean this mess
                 except OSError:
                     error = Error("SaveSongError", song.name, song.uri)
                     errors_all.append(error)
                     print("\nFailed to save song %s.\n" % song.name)
+                
+                album_lyrics_all[song.name] =  song.lyrics #seperate, so it will always at least record null
+                del song.lyrics                            #better than having a missing entry if you place it further up
+                # Write to file
+                try:
+                    song.to_json(songpath + ".json")
+                except OSError:
+                    error = Error("SaveSongError", song.name, song.uri)
+                    errors_all.append(error)
+                    print("\nFailed to save song %s.\n" % song.name)
+
             else: 
                 #TODO: Ask to overwrite
                 continue
