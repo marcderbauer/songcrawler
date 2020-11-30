@@ -10,6 +10,7 @@ Explain :)
 
 ## Requirements
 SongCrawler requires [nltk](https://github.com/nltk/nltk), [lyricgenius](https://github.com/johnwmillr/LyricsGenius) and [spotipy](https://github.com/plamere/spotipy). <br/>
+To process the audio_features into csv format pandas is required too.
 They can be installed with the following command: <br/>
   ` pip install nltk, lyricgenius, spotipy`
 
