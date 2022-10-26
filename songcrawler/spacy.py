@@ -1,3 +1,4 @@
+# pretty sure this was just an experiment
 nlp = spacy.load("en_core_web_sm")
 
 def named_entity_recognition(text, label):

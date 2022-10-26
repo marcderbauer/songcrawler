@@ -1,3 +1,6 @@
+# Processes text to perform statistics on it
+# Performs sentiment analysis
+# Creates CSVs which can be used to analyisen the data later
 import glob
 import json
 import os
@@ -53,7 +56,7 @@ def normalize(text):
     try:
         text = re.sub(r'\[.*\]', '', text)
     except:
-        print: "Song has no lyrics"
+        print("Song has no lyrics")
         return
     
 

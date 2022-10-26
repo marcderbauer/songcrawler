@@ -1,3 +1,6 @@
+# Helper function to find out which songs don't have lyrics included with them
+# Should not be it's own file.
+
 import json, os, re
 from types import SimpleNamespace as Namespace
 from scrape import get_single_song

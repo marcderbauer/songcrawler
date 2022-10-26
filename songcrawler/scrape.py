@@ -1,3 +1,9 @@
+# This file has everything related to scraping.
+# The Artist, Album, Song and Error classes are in here
+# The main function for scraping songs is in here
+# So is the option to get single songs
+# This can definitely be broken up more
+
 import json
 import os
 import re
@@ -363,7 +369,7 @@ def crawl_songs(input_artist_uri, overwrite = True, get_lyrics = True, regex_fil
     lyrics_path = os.path.join(input_artist_path, "lyrics")
 
     ####FOR DEBUGGING#########
-    return input_artist_path, artist.name
+    #return input_artist_path, artist.name
 
     errors_all = []
 
@@ -529,7 +535,7 @@ def find_missing_lyrics(artist_name,errors_file=None,tries=5):
 
 
 if __name__ == "__main__":
-    find_missing_lyrics("FKA twigs")
+    find_missing_lyrics("Kid Cudi")
 
 # TODO: Save artist level info in artist folder
 # TODO: average songs
