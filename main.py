@@ -12,7 +12,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 
 parser = argparse.ArgumentParser(description='Gather Spotify statistics and Genius lyrics.')
 parser.add_argument("main_argument", type=str, help="Either a Spotify uri, a songname or a genius id")
-parser.add_argument("--filetype", type="str", default="json", help="Filetype to save output as. Possible options: .json, .csv")
+parser.add_argument("--filetype", type=str, default="json", help="Filetype to save output as. Possible options: .json, .csv")
 parser.add_argument("--genius", default=False, action='store_true', help="Lists alternative Genius ids when main argument is a songname")
 # parser.add_argument("filename", type=str, default="data/combined.txt", help="Path of the input file.")
 # parser.add_argument("--filter_lang", metavar="lang", type=str, default="en", help="Filters all lines not deemed to be of the given language.")
@@ -24,7 +24,7 @@ parser.add_argument("--genius", default=False, action='store_true', help="Lists 
 args = parser.parse_args()
 
 
-print(args.filename)
+#print(args.filename)
 
 #----------------------------------------------------------------------------
 #                               Setup
@@ -71,35 +71,46 @@ def get_single_lyrics(genius_id):
 def main():
     # This is used only when accessing the program through the CLI
     # Keep in mind that the songcrawler class should also work independently as a python module
+    pass
     main_arg_type = parse_main_argument(args.main_argument)
     match main_arg_type:
         case "genius_id":
             get_single_lyric(args.main_argument)
         case "spotify":
-            if args.lyrics_only
+            if args.lyrics_only:
+                pass
 
-class Request()
+#----------------------------------------------------------------------------
+#                               Request
+#----------------------------------------------------------------------------
+
+class Request():
     def __init__(self, query) -> None:
         self.query = query
-        self 
+        self.type = self.get_request_type(query)
     
-    def request_type(query):
+    def get_request_type(self, query):
         """
         Differentiates whether the query is a genius_id, spotify_uri, or songname
         """
         if query.isdigit():
-            return("genius_id")
-        elif query.startswith("spotify_uri"):
+            return("genius")
+        elif query.startswith("spotify:"):
             return("spotify")
         else:
             return("song")
 
-    def get_spotify_request_type(self, uri):
+    def get_spotify_type(self, uri):
         """
         Takes a spotify uri and returns the type of resource it requests i.e. song, album, artist, playlist
         """
         uri = uri.split(":")[1]    
         return uri
+
+
+#----------------------------------------------------------------------------
+#                               Songcrawler
+#----------------------------------------------------------------------------
 
 class Songcrawler():
     def __init__(self, lyrics_requested=True, filetype="json", use_genius_album=False) -> None:
@@ -112,57 +123,65 @@ class Songcrawler():
         self.no_lyrics = {} # trackname: spotify_uri for songs without lyrics # Todo: remember to reset after each request
 
 
-    def reques_backup(self, uri, genius_id=None, lyrics_requested=True):
-        """
-        Make a request for a song, album, artist or playlist.
-        Returns the spotify statistics and by default also the lyrics
-        """
-        request_type = self.get_request_type(uri)
-        self.lyrics_requested = lyrics_requested # does this make sense. So the lyrics_requested param doesn't need to get passed down
-        match request_type:
-            case "track":
-                return self.get_song(uri, genius_id)
-            case "album":
-                return self.get_album(uri)
-            case "artist":
-                return self.get_artist(uri)
-            case "playlist":
-                return self.get_playlist(uri)
-            case _:
-                raise Exception(f'Unknown request type: \"{request_type}\"')
-        # would be great if it didn't return yet
-        # could print out missing songs here
-        # reset missing songs after (or maybe at beginning of request function?)
-
-    def request(self, query, lyrics_requested=True):
+    def request(self, query, lyrics_requested=False):
         """
         Make a request for a song, album, artist or playlist.
         Returns the spotify statistics and by default also the lyrics
         """
         # TODO instantiate request object from query
-
+        request = Request(query)
         # do different things here depending on request type
 
         # code from here should work (with some adjustments) for request_type spotify
-        request_type = self.get_request_type(uri)
+        # request_type = self.get_request_type(uri)
+        # TODO: calling this method by default sets lyrics_requested to true, which may overwrite a global param
         self.lyrics_requested = lyrics_requested # does this make sense. So the lyrics_requested param doesn't need to get passed down
-        match request_type:
-            case "track":
-                return self.get_song(uri, genius_id)
-            case "album":
-                return self.get_album(uri)
-            case "artist":
-                return self.get_artist(uri)
-            case "playlist":
-                return self.get_playlist(uri)
-            case _:
-                raise Exception(f'Unknown request type: \"{request_type}\"')
+        if request.type == "spotify":
+            match request.get_spotify_type(query):
+                case "track":
+                    result = self.get_song(query)
+                case "album":
+                    return self.get_album(query)
+                case "artist":
+                    return self.get_artist(query)
+                case "playlist":
+                    return self.get_playlist(query)
+                case _:
+                    raise Exception(f'Unknown request type: \"{request_type}\"')
+        elif request.type == "genius":
+            result = self.get_lyrics(query)
+            print(result)
+        else:
+            if self.lyrics_only:
+                self.get_lyrics(query)
+            else:
+                # try to find song_uri and get_song
+                pass
+        
+        # check if length of result is two -> shows if you have lyrics and spotify / music
+        # maybe a class would be better for that?
+
         # would be great if it didn't return yet
         # could print out missing songs here
         # reset missing songs after (or maybe at beginning of request function?)
 
 
-    def get_lyrics(self, )
+    def get_lyrics(self, genius_id=None, song=None, artist=None):
+        """
+        Takes a genius_id or song name and returns the lyrics for it
+        """
+        if genius_id:
+            pass
+        elif (song == None or artist == None):
+            raise Exception("requires either a genius_id or a songname and artist")
+        
+        if genius_id:
+                lyrics = genius.search_song(song_id=genius_id).lyrics # TODO: should try without genius id if this fails
+        else:
+            name_filtered = re.sub(r" *(\(.*\)|feat\.?.*|ft\..*)", "", song)
+            lyrics = genius.search_song(name_filtered, artist).lyrics
+        return lyrics
+
 
     def get_song(self, song_uri, genius_id=None): # num retries should be part of the CLI
         # Get song from spotify
@@ -176,12 +195,10 @@ class Songcrawler():
         # TODO: This should be it's own function
         if self.lyrics_requested:
             # Get song lyrics
-            if genius_id:
-                lyrics = genius.search_song(song_id=genius_id).lyrics # TODO: should try without genius id if this fails
-            else:
-                name_filtered = re.sub(r" *(\(.*\)|feat\.?.*|ft\..*)", "", song)
-                lyrics = genius.search_song(name_filtered, artist).lyrics
-                
+            lyrics = self.get_lyrics(song=song, artist=artist)
+
+        #TODO: maybe pack it all together here?
+        #      Maybe a song class?
             return {"artist": artist, "album" : album, **features}, lyrics
         else:
             return {"artist": artist, "album" : album, **features}
@@ -230,12 +247,14 @@ class Songcrawler():
 
 if __name__=="__main__":
     sc = Songcrawler()
+    song = sc.request("spotify:track:5CBEzaNEuv3OO32kZoXgOX")
+    sc.request("8150537")
     sc.request("spotify:album:6dVCpQ7oGJD1oYs2fv1t5M")
-    #song = get_song("spotify:track:5CBEzaNEuv3OO32kZoXgOX")
     #album = get_album("spotify:album:6dVCpQ7oGJD1oYs2fv1t5M")#, lyrics_requested=False)
     #artist = get_artist("spotify:artist:0fA0VVWsXO9YnASrzqfmYu", album_regex)
     #print(artist)
-    
+    # BFIAFL genius_ids:
+    # [8150565, 8150537, 8150538, 8099567, 8150539, 8150540, 8150541, 8150542, 8150543, 8150544, 8150545]
 
 # If it doesn't find anything then the lyrics are just empty e.g. New York City Rage Fest on Indicud
 # Would be cool if it included the song / album uri for debugging
