@@ -47,7 +47,7 @@ genius.excluded_terms = ["(Remix)", "(Live)"] # Exclude songs with these words i
 
 
 song_regex = "edit(ed)?|clean|remix" # TODO: use excluded terms instead, or make the same at least
-album_regex = "Deluxe|Edition"
+
 
 #----------------------------------------------------------------------------
 #                               Functions
@@ -107,13 +107,50 @@ class Request():
         uri = uri.split(":")[1]    
         return uri
 
+#----------------------------------------------------------------------------
+#                               Music
+#----------------------------------------------------------------------------
+# TODO: Maybe save uri for each of these
+
+class Song():
+    def __init__(self, name, album, artist, features, lyrics=None) -> None:
+        self.name = name
+        self.album = album
+        self.artist = artist
+        self.features = features
+        self.lyrics = lyrics
+
+
+class Album():
+    def __init__(self, name, artist, songs_to_uri=None) -> None:
+        self.name = name
+        self.artist = artist
+        self.songs_to_uri = songs_to_uri
+        self.songs = {}
+        self.missing_lyrics = {} # name:uri of missing songs 
+
+
+class Artist():
+    def __init__(self, name, albums_to_uri=None) -> None:
+        self.name = name
+        self.albums_to_uri = albums_to_uri
+        self.albums = {}
+        self.missing_lyrics = {} # name:uri of missing songs 
+
+
+class Playlist():
+    def __init(self, name) -> None:
+        self.name = name
+
+
+
 
 #----------------------------------------------------------------------------
 #                               Songcrawler
 #----------------------------------------------------------------------------
 
 class Songcrawler():
-    def __init__(self, lyrics_requested=True, filetype="json", use_genius_album=False) -> None:
+    def __init__(self, lyrics_requested=True, filetype="json", use_genius_album=False, region="US") -> None:
         self.lyrics_requested = lyrics_requested
         self.filetype = filetype
         self.features_wanted = ['danceability', 'energy', 'key', 'loudness',
@@ -121,9 +158,10 @@ class Songcrawler():
                                 'liveness', 'valence', 'tempo', 'time_signature', 'duration_ms']
         self.use_genius_album = use_genius_album
         self.no_lyrics = {} # trackname: spotify_uri for songs without lyrics # Todo: remember to reset after each request
+        self.region = region #setting country to US arbitrarily to avoid duplicates across regions
+        self.album_regex = "Deluxe|Edition"
 
-
-    def request(self, query, lyrics_requested=False):
+    def request(self, query, lyrics_requested=True):
         """
         Make a request for a song, album, artist or playlist.
         Returns the spotify statistics and by default also the lyrics
@@ -186,72 +224,86 @@ class Songcrawler():
     def get_song(self, song_uri, genius_id=None): # num retries should be part of the CLI
         # Get song from spotify
         spotify_song = spotify.track(song_uri)
-        song = spotify_song['name']
-        artist = spotify_song['artists'][0]['name']
-        album = spotify_song['album']['name']
+        song_name = spotify_song['name']
+        artist_name = spotify_song['artists'][0]['name']
+        album_name = spotify_song['album']['name']
         features = spotify.audio_features(tracks=[song_uri])[0]
         features = dict(filter(lambda i:i[0] in self.features_wanted, features.items()))
+        song = Song(song_name, album_name, artist_name, features)
 
         # TODO: This should be it's own function
         if self.lyrics_requested:
+            if genius_id:
+                song.lyrics = self.get_lyrics(genius_id = genius_id)
             # Get song lyrics
-            lyrics = self.get_lyrics(song=song, artist=artist)
+            if not song.lyrics:
+                song.lyrics = self.get_lyrics(song=song_name, artist=artist_name)
 
-        #TODO: maybe pack it all together here?
-        #      Maybe a song class?
-            return {"artist": artist, "album" : album, **features}, lyrics
-        else:
-            return {"artist": artist, "album" : album, **features}
+        return song
+
         
 
     def get_album(self, album_uri): # TODO: flag for using genius albums?
         spotify_album = spotify.album(album_uri)
 
-        artist = spotify_album['artists'][0]['name']
-        album = spotify_album['name']
+        artist_name = spotify_album['artists'][0]['name']
+        album_name = spotify_album['name']
         songs_to_uri = {entry["name"]:entry["uri"] for entry in spotify_album['tracks']['items']}
 
-        if self.lyrics_requested:
-            
-            # TODO: if self.use_genius_album
-            genius_album = genius.search_album(album, artist)
-            genius_ids = [track.id for track in genius_album.tracks]
-            songs = {}
-            lyrics = {}
-            missing_lyrics = []
-            for index, (name, uri) in enumerate(songs_to_uri.items()):
-                songs[name], lyrics[name] = self.get_song(song_uri=uri, genius_id=genius_ids[index])
-                if not lyrics[name]:
-                    missing_lyrics.append(set([name, uri])) # TODO: currently for logging, but could maybe find a better structure to automate
-            return songs, lyrics
-        else:
-            songs = {name:self.get_song(uri) for name, uri in songs_to_uri.items()}
-            return songs
+        album = Album(album_name, artist_name, songs_to_uri)
+        songs = {}
 
-
-    def get_artist(self, artist_uri, regex_filter = None, album_type="album"):
-        spotify_artist = spotify.artist_albums(artist_uri, album_type=album_type, country="US", limit=50, offset=0) #setting country to US arbitrarily to avoid duplicates across regions
-        artist = spotify.artist(artist_uri)["name"]
-        album_to_uri = {album["name"]:album["uri"] for album in spotify_artist['items'] if not re.search(regex_filter, album["name"], re.I)}
+        # Solution isn't very pretty, could be reworked
+        # Maybe seperate get_song function for genius_id and spotify_uri?
+        if self.use_genius_album:
+        # TODO: I can still use genius's albums, I just need to find a way to align it by song
+        # genius albums do include the title, even if it's a bit different from the titles in spotify
+        # Could maybe use that?
         
-        if self.lyrics_requested:
-            albums = {}
-            lyrics = {}
-            for name, uri in album_to_uri.items():
-                albums[name], lyrics[name] = self.get_album(uri)
-            return(albums)
+            genius_album = genius.search_album(album_name, artist_name)
+            album.genius_ids = [track.id for track in genius_album.tracks]
+
+            for index, (name, uri) in enumerate(songs_to_uri.items()):
+                song = self.get_song(song_uri=uri, genius_id=album.genius_ids[index])
+                songs[name] = song
+                if not song.lyrics:
+                    album.missing_lyrics[name]= uri # TODO: currently for logging, but could maybe find a better structure to automate
         else:
-            albums = {name:self.get_album(uri) for name, uri in album_to_uri.items()}
-            return albums
+            for name, uri in songs_to_uri.items():
+                song = self.get_song(uri)
+                songs[name] = song
+                if not song.lyrics:
+                    album.missing_lyrics[name]= uri
+
+        album.songs = songs
+        return album
+
+
+
+    def get_artist(self, artist_uri, album_type="album"):
+        spotify_artist = spotify.artist_albums(artist_uri, album_type=album_type, country=self.region, limit=50)
+        artist_name = spotify.artist(artist_uri)["name"]
+        albums_to_uri = {album["name"]:album["uri"] for album in spotify_artist['items'] if not re.search(self.album_regex, album["name"], re.I)}
+        artist = Artist(artist_name, albums_to_uri)
+        albums = {}
+        missing_lyrics = {}
+
+        for name, uri in albums_to_uri.items():
+            albums[name] = self.get_album(uri)
+        
+        # TODO: find all missing songs across albums
+        artist.albums = albums
+        return(albums)
+
             
 
 if __name__=="__main__":
     sc = Songcrawler()
+    artist = sc.request("spotify:artist:0fA0VVWsXO9YnASrzqfmYu")
+    album = sc.request("spotify:album:6dVCpQ7oGJD1oYs2fv1t5M")#, lyrics_requested=False)
     song = sc.request("spotify:track:5CBEzaNEuv3OO32kZoXgOX")
     sc.request("8150537")
     sc.request("spotify:album:6dVCpQ7oGJD1oYs2fv1t5M")
-    #album = get_album("spotify:album:6dVCpQ7oGJD1oYs2fv1t5M")#, lyrics_requested=False)
-    #artist = get_artist("spotify:artist:0fA0VVWsXO9YnASrzqfmYu", album_regex)
     #print(artist)
     # BFIAFL genius_ids:
     # [8150565, 8150537, 8150538, 8099567, 8150539, 8150540, 8150541, 8150542, 8150543, 8150544, 8150545]
