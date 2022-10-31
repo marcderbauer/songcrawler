@@ -5,3 +5,4 @@ songcrawler/test/
 songcrawler/lyricgenius/
 songcrawler/data/
 .env
+data/
