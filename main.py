@@ -132,6 +132,12 @@ class Song():
         """
         return printstring
 
+    def clean_lyrics(self):
+        """
+        Cleans annotations from lyrics
+        TODO: implement
+        """
+        self.lyrics = self.lyrics
 
 class Album():
     def __init__(self, name, artist, songs_to_uri=None) -> None:
@@ -306,12 +312,28 @@ class Songcrawler():
         artist.albums = albums
         return(albums)
 
+    def _save_song (self, song):
+        path = os.path.join(self.folder, song.artist, song.album)
+        if not os.path.exists(path):
+            os.makedirs(path)
+        
+        if self.filetype == "json":
+            # TODO if no lyrics
+
+            # TODO: make sure this works correctly
+            with open(os.path.join(path, f"{song.album}.json"), "a") as f:
+                f.write(song.toJSON())
+            
+            with open(os.path.join(path, f"{song.album}_lyrics.json"), "a") as f:
+                f.write(json.dumps(song.lyrics, indent=4))  
+
     def _save_album(self, album):
         path = os.path.join(self.folder, album.artist, album.name)
         if not os.path.exists(path):
             os.makedirs(path)
 
         if self.filetype == "json":
+            # TODO: if no_lyrics
             lyrics = {}
             for name, song in album.songs.items():
                 lyrics[name] = song.lyrics
@@ -321,7 +343,12 @@ class Songcrawler():
                 f.write(album.toJSON())
             
             with open(os.path.join(path, f"{album.name}_lyrics.json"), "w") as f:
-                f.write(json.dumps(lyrics, indent=4))       
+                f.write(json.dumps(lyrics, indent=4))      
+        elif self.filetype == "csv":
+            pass
+        else:
+            raise Exception(f'Unknown file type: \"{self.filetype}\". Please select either \"json\" or \"csv\"')
+
         
 
     def save(self, result):
@@ -333,7 +360,8 @@ class Songcrawler():
         elif isinstance(result, Album):
             self._save_album(result)
         elif isinstance(result, Artist):
-            pass
+            for album in result.albums:
+                self._save_album(album)
         elif isinstance(result, Playlist):
             pass
         elif isinstance(result, str): # when only querying lyrics
