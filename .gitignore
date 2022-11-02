@@ -6,3 +6,6 @@ songcrawler/lyricgenius/
 songcrawler/data/
 .env
 data/
+setup.sh
+test.py
+.cache
