@@ -134,14 +134,63 @@ class Song():
         Found Lyrics:   {f"Yes -- {self.lyrics[:50]}..." if self.lyrics else "No :("}    
         """
         return printstring
+        
+    @classmethod
+    def from_spotify(cls, uri, lyrics_requested, features_wanted, genius_id=None):
+        spotify_song = spotify.track(uri)
+        song_name = spotify_song['name']
+        artist_name = spotify_song['artists'][0]['name']
+        album_name = spotify_song['album']['name']
+        features = spotify.audio_features(tracks=[uri])[0]
+        features = dict(filter(lambda i:i[0] in features_wanted, features.items()))
+        song = Song(song_name, album_name, artist_name, features)
 
-    def clean_lyrics(self):
+        # TODO: Either make this a classmethod or move this to song
+        if lyrics_requested:
+            if genius_id:
+                song.lyrics = Song.get_lyrics(genius_id = genius_id)
+            # Get song lyrics
+            if not song.lyrics:
+                song.lyrics = Song.get_lyrics(song=song_name, artist=artist_name)
+
+        print(f"Retrieved Song: {song.name}")
+        return song
+
+    @classmethod
+    def get_lyrics(cls, genius_id=None, song=None, artist=None, clean_lyrics=True):
         """
-        Cleans annotations from lyrics
-        TODO: implement
+        Takes a genius_id or song name and returns the lyrics for it
         """
-        self.lyrics = self.lyrics
-    
+        if genius_id:
+            pass
+        elif (song == None or artist == None):
+            raise Exception("requires either a genius_id or a songname and artist")
+        
+        if genius_id:
+                lyrics = genius.search_song(song_id=genius_id).lyrics # TODO: should try without genius id if this fails
+        else:
+            name_filtered = re.sub(r" *(\(.*\)|feat\.?.*|ft\..*)", "", song)
+            genius_song = genius.search_song(name_filtered, artist)
+            try:
+                lyrics = genius_song.lyrics
+            except:
+                lyrics = ""
+        if clean_lyrics:
+            lyrics = Song.clean_lyrics(lyrics)
+        return lyrics
+
+    @classmethod
+    def clean_lyrics(cls, lyrics):
+        # TODO: This would make more sense as part of the song class?
+        #       -> Would this work with non-spotify songs? Could just be a classmethod 
+        # TODO: filter lyrics for tags using regex
+        lyrics = re.sub(r"^.*Lyrics(\n)?", "", lyrics) # <Songname> "Lyrics" (\n)?
+        lyrics = re.sub(r"\d*Embed$", "", lyrics) # ... <digits>"Embed"
+        lyrics = re.sub("(\u205f|\u0435|\u2014|\u2019) ?", " ", lyrics) # Unicode space variants
+        lyrics = re.sub(r"\n+", r"\n", lyrics) # squeezes multiple newlines into one
+        lyrics = re.sub(r" +", r" ", lyrics) # squeezes multiple spaces into one
+        return lyrics
+
     def save(self, folder, filetype):
         """
         Saves a song using the same structure used when saving albums
@@ -264,18 +313,6 @@ class Songcrawler():
         self.album_regex = "Deluxe|Edition"
         self.folder = folder
 
-    @classmethod
-    def clean_lyrics(cls, lyrics):
-        # TODO: This would make more sense as part of the song class?
-        #       -> Would this work with non-spotify songs? Could just be a classmethod 
-        # TODO: filter lyrics for tags using regex
-        lyrics = re.sub(r"^.*Lyrics(\n)?", "", lyrics) # <Songname> "Lyrics" (\n)?
-        lyrics = re.sub(r"\d*Embed$", "", lyrics) # ... <digits>"Embed"
-        lyrics = re.sub("(\u205f|\u0435|\u2014|\u2019) ?", " ", lyrics) # Unicode space variants
-        lyrics = re.sub(r"\n+", r"\n", lyrics) # squeezes multiple newlines into one
-        lyrics = re.sub(r" +", r" ", lyrics) # squeezes multiple spaces into one
-        return lyrics
-
     def request(self, query, lyrics_requested=True):
         """
         Make a request for a song, album, artist or playlist.
@@ -314,51 +351,10 @@ class Songcrawler():
                 pass
         
 
-
-
-
-    def get_lyrics(self, genius_id=None, song=None, artist=None, clean_lyrics=True):
-        """
-        Takes a genius_id or song name and returns the lyrics for it
-        """
-        if genius_id:
-            pass
-        elif (song == None or artist == None):
-            raise Exception("requires either a genius_id or a songname and artist")
-        
-        if genius_id:
-                lyrics = genius.search_song(song_id=genius_id).lyrics # TODO: should try without genius id if this fails
-        else:
-            name_filtered = re.sub(r" *(\(.*\)|feat\.?.*|ft\..*)", "", song)
-            genius_song = genius.search_song(name_filtered, artist)
-            try:
-                lyrics = genius_song.lyrics
-            except:
-                lyrics = ""
-        if clean_lyrics:
-            lyrics = self.clean_lyrics(lyrics)
-        return lyrics
-
-
     def get_song(self, song_uri, genius_id=None): # num retries should be part of the CLI
         # Get song from spotify
-        spotify_song = spotify.track(song_uri)
-        song_name = spotify_song['name']
-        artist_name = spotify_song['artists'][0]['name']
-        album_name = spotify_song['album']['name']
-        features = spotify.audio_features(tracks=[song_uri])[0]
-        features = dict(filter(lambda i:i[0] in self.features_wanted, features.items()))
-        song = Song(song_name, album_name, artist_name, features)
-
-        # TODO: This should be it's own function
-        if self.lyrics_requested:
-            if genius_id:
-                song.lyrics = self.get_lyrics(genius_id = genius_id)
-            # Get song lyrics
-            if not song.lyrics:
-                song.lyrics = self.get_lyrics(song=song_name, artist=artist_name)
-
-        print(f"Retrieved Song: {song.name}")
+        song = Song.from_spotify(song_uri, lyrics_requested=self.lyrics_requested, 
+                                features_wanted=self.features_wanted, genius_id=genius_id)
         return song
 
 
