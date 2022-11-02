@@ -141,6 +141,56 @@ class Song():
         TODO: implement
         """
         self.lyrics = self.lyrics
+    
+    def save(self, folder, filetype):
+        """
+        Saves a song using the same structure used when saving albums
+        Overwrites the song if it already exists
+        Caveat: lyrics will always be appended to the end (for .json), this may mess up song order
+        """
+
+        path = os.path.join(folder, self.artist, self.album)
+        if not os.path.exists(path):
+            os.makedirs(path)
+        
+        if filetype == "json":
+            album_path = os.path.join(path, f"{self.album}.json")
+            lyrics_path = album_path.split(".json")[0] + "_lyrics.json" # TODO: probably a nicer way to do this
+
+            if self.lyrics:
+                if os.path.exists(lyrics_path):
+                    try:
+                        with open(lyrics_path, "r") as f:
+                            lyrics_file = f.read()
+                            lyrics = json.loads(lyrics_file)
+                    except json.JSONDecodeError:
+                        raise("Issue when trying to read .json file.") # TODO: make more descriptive
+                else:
+                    lyrics = {}
+
+                lyrics[self.name] = self.lyrics
+                delattr(self, "lyrics")
+                with open(lyrics_path, "w") as f:
+                    f.write(json.dumps(lyrics, indent=4))
+
+            # Song / Album
+            if os.path.exists(album_path):
+                with open(album_path, "r") as f:
+                    album_file = f.read()
+                
+                album_json = json.loads(album_file)
+                album = Album(**album_json)    
+                album.songs[self.name] = self
+            else:
+                # TODO: would be nice to include song_to_uri here, but need to save song_uri for that first
+                album = Album(self.album, self.artist, songs={self.name:self})
+
+            with open(album_path, "w") as f:
+                f.write(album.toJSON())
+        elif self.filetype == "csv":
+            pass
+        else:
+            raise Exception(f'Unknown file type: \"{self.filetype}\". Please select either \"json\" or \"csv\"')
 
 class Album():
     def __init__(self, name, artist, songs_to_uri=None, songs=None, missing_lyrics=None) -> None:
@@ -153,6 +203,29 @@ class Album():
     def toJSON(self):
         return json.dumps(self, default=lambda o: o.__dict__, indent=4)
     
+    def save(self, folder, filetype):
+        path = os.path.join(folder, self.artist, self.name)
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        if filetype == "json":
+            # TODO: if no_lyrics
+            lyrics = {}
+            for name, song in self.songs.items():
+                lyrics[name] = song.lyrics
+                delattr(song, "lyrics")
+            
+            with open(os.path.join(path, f"{self.name}.json"), "w") as f:
+                f.write(self.toJSON())
+            
+            with open(os.path.join(path, f"{self.name}_lyrics.json"), "w") as f:
+                f.write(json.dumps(lyrics, indent=4))      
+        elif filetype == "csv":
+            pass
+        else:
+            raise Exception(f'Unknown file type: \"{filetype}\". Please select either \"json\" or \"csv\"')
+
+    
 
 
 class Artist():
@@ -161,11 +234,15 @@ class Artist():
         self.albums_to_uri = albums_to_uri
         self.albums = {}
         self.missing_lyrics = {} # name:uri of missing songs 
-
+    
 
 class Playlist():
     def __init(self, name) -> None:
         self.name = name
+    
+    def save(self, folder, filetype):
+        #TODO Implement
+        pass
 
 
 
@@ -189,6 +266,8 @@ class Songcrawler():
 
     @classmethod
     def clean_lyrics(cls, lyrics):
+        # TODO: This would make more sense as part of the song class?
+        #       -> Would this work with non-spotify songs? Could just be a classmethod 
         # TODO: filter lyrics for tags using regex
         lyrics = re.sub(r"^.*Lyrics(\n)?", "", lyrics) # <Songname> "Lyrics" (\n)?
         lyrics = re.sub(r"\d*Embed$", "", lyrics) # ... <digits>"Embed"
@@ -209,30 +288,32 @@ class Songcrawler():
         if request.type == "spotify":
             match request.get_spotify_type(query):
                 case "track":
-                    result = self.get_song(query)
+                    song = self.get_song(query)
+                    song.save(self.folder, self.filetype)
                 case "album":
-                    result = self.get_album(query)
+                    album = self.get_album(query)
+                    album.save(self.folder, self.filetype)
                 case "artist":
-                    # TODO: This should save 
-                    result = self.get_artist(query)
+                    # saving within get_artist method after every album in case program crashes
+                    self.get_artist(query)
                 case "playlist":
                     result = self.get_playlist(query)
+                    self._save_playlist(result)
                 case _:
                     raise Exception(f'Unknown request type: \"{request.type}\"')
         elif request.type == "genius":
             result = self.get_lyrics(query)
             print(result)
+            # TODO: Figure out how to save this
         else:
             if self.lyrics_only:
                 result = self.get_lyrics(query)
+                # TODO: figure out how to save this
             else:
                 # try to find song_uri and get_song
                 pass
         
-        # This works for songs, but not albums/ artists
-        # TODO: reset missing songs after (or maybe at beginning of request function?)
-        #print(result)
-        self.save(result)
+
 
 
 
@@ -280,7 +361,6 @@ class Songcrawler():
         print(f"Retrieved Song: {song.name}")
         return song
 
-        
 
     def get_album(self, album_uri): # TODO: flag for using genius albums?
         spotify_album = spotify.album(album_uri)
@@ -329,105 +409,16 @@ class Songcrawler():
 
         for name, uri in albums_to_uri.items():
             album = self.get_album(uri)
+            album.save(self.folder, self.filetype)
             albums[name] = album
-            self.save(album)
+            
         
         # TODO: find all missing songs across albums
         artist.albums = albums
         return(artist)
-
-    def _save_song (self, song):
-        """
-        Saves a song using the same structure used when saving albums
-        Overwrites the song if it already exists
-        Caveat: lyrics will always be appended to the end (for .json), this may mess up song order
-        """
-
-        path = os.path.join(self.folder, song.artist, song.album)
-        if not os.path.exists(path):
-            os.makedirs(path)
         
-        if self.filetype == "json":
-            album_path = os.path.join(path, f"{song.album}.json")
-            lyrics_path = album_path.split(".json")[0] + "_lyrics.json" # TODO: probably a nicer way to do this
+        return
 
-            if song.lyrics:
-                if os.path.exists(lyrics_path):
-                    try:
-                        with open(lyrics_path, "r") as f:
-                            lyrics_file = f.read()
-                            lyrics = json.loads(lyrics_file)
-                    except json.JSONDecodeError:
-                        raise("Issue when trying to read .json file.") # TODO: make more descriptive
-                else:
-                    lyrics = {}
-
-                lyrics[song.name] = song.lyrics
-                delattr(song, "lyrics")
-                with open(lyrics_path, "w") as f:
-                    f.write(json.dumps(lyrics, indent=4))
-
-            # Song / Album
-            if os.path.exists(album_path):
-                with open(album_path, "r") as f:
-                    album_file = f.read()
-                
-                album_json = json.loads(album_file)
-                album = Album(**album_json)    
-                album.songs[song.name] = song
-            else:
-                # TODO: would be nice to include song_to_uri here, but need to save song_uri for that first
-                album = Album(song.album, song.artist, songs={song.name:song})
-
-            with open(album_path, "w") as f:
-                f.write(album.toJSON())
-        elif self.filetype == "csv":
-            pass
-        else:
-            raise Exception(f'Unknown file type: \"{self.filetype}\". Please select either \"json\" or \"csv\"')
-
-    def _save_album(self, album):
-        path = os.path.join(self.folder, album.artist, album.name)
-        if not os.path.exists(path):
-            os.makedirs(path)
-
-        if self.filetype == "json":
-            # TODO: if no_lyrics
-            lyrics = {}
-            for name, song in album.songs.items():
-                lyrics[name] = song.lyrics
-                delattr(song, "lyrics")
-            
-            with open(os.path.join(path, f"{album.name}.json"), "w") as f:
-                f.write(album.toJSON())
-            
-            with open(os.path.join(path, f"{album.name}_lyrics.json"), "w") as f:
-                f.write(json.dumps(lyrics, indent=4))      
-        elif self.filetype == "csv":
-            pass
-        else:
-            raise Exception(f'Unknown file type: \"{self.filetype}\". Please select either \"json\" or \"csv\"')
-
-        
-
-    def save(self, result):
-        # TODO: Probably not a good way to handle this, especially as albums from an artist should be saved when retrieved to avoid errors
-        """
-        Saves result to files
-        """
-        if isinstance(result, Song):
-            self._save_song(result)
-        elif isinstance(result, Album):
-            self._save_album(result)
-        elif isinstance(result, Artist):
-            for album in result.albums:
-                self._save_album(album)
-        elif isinstance(result, Playlist):
-            pass
-        elif isinstance(result, str): # when only querying lyrics
-            pass
-        else:
-            raise Exception(f'Unknown result type: \"{type(result)}\"')
         
 
 if __name__=="__main__":
