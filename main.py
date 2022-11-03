@@ -5,6 +5,8 @@ import spotipy
 import re
 from spotipy.oauth2 import SpotifyClientCredentials
 import json
+import abc
+from abc import ABC, abstractmethod
 
 
 
@@ -21,13 +23,6 @@ parser.add_argument("--use_genius_album", default=False, action='store_true', he
 parser.add_argument("--region", type=str, default="US", help="Region to query songs for Spotify API. Helps prevent duplicate album entries.")
 parser.add_argument("--folder", type=str, default="data", help="Output folder")
 parser.add_argument("--overwrite", default=False, action='store_true', help="Overwrites existing songs/albums/artists/playlists")
-# parser.add_argument("filename", type=str, default="data/combined.txt", help="Path of the input file.")
-# parser.add_argument("--filter_lang", metavar="lang", type=str, default="en", help="Filters all lines not deemed to be of the given language.")
-# parser.add_argument("--min_distance", type=int, default=3, help="Filters out all lines with a Levenshtein distance up to this value")
-# parser.add_argument("--min_words", type=int, default=3, help="Filter all lines which have less than min_words.")
-# parser.add_argument("--split", type=float, default=0.8, help="Splitpoint for train/test set.")
-# parser.add_argument("--overwrite", default=False, action='store_true', help="Overwrite existing files")
-# album type for artist request
 args = parser.parse_args()
 
 
@@ -84,39 +79,10 @@ def main():
     sc.request(args.query)
 
 #----------------------------------------------------------------------------
-#                               Request
-#----------------------------------------------------------------------------
-
-class Request():
-    def __init__(self, query) -> None:
-        self.query = query
-        self.type = self.get_request_type(query)
-    
-    def get_request_type(self, query):
-        """
-        Differentiates whether the query is a genius_id, spotify_uri, or songname
-        """
-        if query.isdigit():
-            return("genius")
-        elif query.startswith("spotify:"):
-            return("spotify")
-        else:
-            return("song")
-
-    def get_spotify_type(self, uri):
-        """
-        Takes a spotify uri and returns the type of resource it requests i.e. song, album, artist, playlist
-        """
-        uri = uri.split(":")[1]    
-        return uri
-
-#----------------------------------------------------------------------------
 #                               Music
 #----------------------------------------------------------------------------
 # TODO: Maybe save uri for each of these
 
-# Each of those should have the method to convert them to strings (__repr__?) and how to save them to a file
-# Could maybe actually use an abstract class and make them inherit this?
 
 class Song():
     def __init__(self, name, album, artist, features, lyrics=None) -> None:
@@ -393,6 +359,7 @@ class Songcrawler():
         Returns the spotify statistics and by default also the lyrics
         """
         request = Request(query)
+        # TODO: from here -- send query to Music() to instantiate the correct class.
 
         # TODO: calling this method by default sets lyrics_requested to true, which may overwrite a global param
         self.lyrics_requested = lyrics_requested # does this make sense. So the lyrics_requested param doesn't need to get passed down
@@ -450,6 +417,40 @@ class Songcrawler():
         playlist = Playlist.from_spotify(uri=playlist_uri)
 
         return playlist
+
+#----------------------------------------------------------------------------
+#                               Request
+#----------------------------------------------------------------------------
+
+class Request(Songcrawler):
+    def __init__(self, query) -> None:
+        super().__init__()
+        self.query = query
+        self.type = self.get_request_type(query)
+        
+        if self.type == "spotify":
+            self.spotify_type = self.get_spotify_type()
+        else:
+            self.spotify_type = None
+    
+    def get_request_type(self, query):
+        """
+        Differentiates whether the query is a genius_id, spotify_uri, or songname
+        """
+        if query.isdigit():
+            return("genius")
+        elif query.startswith("spotify:"):
+            return("spotify")
+        else:
+            return("song")
+
+    def get_spotify_type(self):
+        """
+        Returns the type of resource the self.query requests i.e. song, album, artist, playlist
+        """
+        uri = self.query.split(":")[1]    
+        return uri
+
 
 if __name__=="__main__":
     main()
