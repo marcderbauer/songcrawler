@@ -307,12 +307,14 @@ class Album(Music):
             os.makedirs(path)
 
         if filetype == "json":
-            # TODO: if no_lyrics
+            #TODO: not a nice way to deal with this. What if I still want to use this class after?
+            #      maybe create a copy of songs / the album that gets saved and then deleted after?
             lyrics = {}
             for name, song in self.songs.items():
                 lyrics[name] = song.lyrics
                 delattr(song, "lyrics")
             
+            delattr(self, "songs_to_uri") 
             with open(os.path.join(path, f"{self.name}.json"), "w") as f:
                 f.write(self.toJSON())
             
