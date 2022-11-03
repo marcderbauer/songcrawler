@@ -6,6 +6,8 @@ import re
 from spotipy.oauth2 import SpotifyClientCredentials
 import json
 from abc import ABC, abstractmethod
+from multiprocessing import Pool
+from itertools import repeat
 
 
 
@@ -46,10 +48,9 @@ genius.remove_section_headers = True # Remove section headers (e.g. [Chorus]) fr
 genius.skip_non_songs = False # Include hits thought to be non-songs (e.g. track lists)
 genius.excluded_terms = ["(Remix)", "(Live)"] # Exclude songs with these words in their title
 
-
+PARALLELIZE = True
 
 song_regex = "edit(ed)?|clean|remix" # TODO: use excluded terms instead, or make the same at least
-
 
 #----------------------------------------------------------------------------
 #                               Functions
@@ -144,6 +145,11 @@ class Song(Music):
         Found Lyrics:   {f"Yes -- {self.lyrics[:50]}..." if self.lyrics else "No :("}    
         """
         return printstring
+    
+    @classmethod
+    def multi_run_wrapper(cls, input_args):
+        uri, (lyrics_requested, features_wanted) = input_args
+        return Song.from_spotify(uri=uri, lyrics_requested=lyrics_requested, features_wanted=features_wanted)
         
     @classmethod
     def from_spotify(cls, uri, lyrics_requested, features_wanted, genius_id=None):
@@ -197,7 +203,7 @@ class Song(Music):
         # TODO: filter lyrics for tags using regex
         lyrics = re.sub(r"^.*Lyrics(\n)?", "", lyrics) # <Songname> "Lyrics" (\n)?
         lyrics = re.sub(r"\d*Embed$", "", lyrics) # ... <digits>"Embed"
-        lyrics = re.sub("(\u205f|\u0435|\u2014|\u2019) ?", " ", lyrics) # Unicode space variants
+        lyrics = re.sub("(\u205f|\u0435|\u2014|\u2019) ?", " ", lyrics) # Unicode space variants # TODO: check if those are all unicode
         lyrics = re.sub(r"\n+", r"\n", lyrics) # squeezes multiple newlines into one
         lyrics = re.sub(r" +", r" ", lyrics) # squeezes multiple spaces into one
         return lyrics
@@ -289,13 +295,20 @@ class Album(Music):
                 if not song.lyrics:
                     album.missing_lyrics[name]= song_uri # TODO: currently for logging, but could maybe find a better structure to automate
         else:
-            for name, song_uri in songs_to_uri.items():
-                song = Song.from_spotify(uri=song_uri, lyrics_requested=lyrics_requested, 
-                                        features_wanted=features_wanted, genius_id=None)
-                album.songs[name] = song
-                if not song.lyrics:
-                    album.missing_lyrics[name]= song_uri
-
+            if PARALLELIZE:
+                with Pool() as pool: #uri, lyrics_requested, features_wanted
+                    results = pool.map(Song.multi_run_wrapper, list(zip(songs_to_uri.values(), repeat([lyrics_requested, features_wanted]))))
+                    for songname in songs_to_uri.keys():
+                        album.songs[songname] = list(filter(lambda x: x.name == songname, results))[0]
+                        
+            else: # Keeping old method for debugging
+                for name, song_uri in songs_to_uri.items():
+                    song = Song.from_spotify(uri=song_uri, lyrics_requested=lyrics_requested, 
+                                            features_wanted=features_wanted)
+                    album.songs[name] = song
+                    if not song.lyrics:
+                        album.missing_lyrics[name]= song_uri
+        
         return album
 
     def toJSON(self):
@@ -418,7 +431,7 @@ class Songcrawler():
         # TODO: flesh logic out here
         if isinstance(result, Artist):
             result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
-                         features_wanted=r.features_wanted, use_genius_album=self.use_genius_album, limit=self.limit)
+                         features_wanted=self.features_wanted, use_genius_album=self.use_genius_album, limit=self.limit)
         else:
             result.save(self.folder, self.filetype)
         return result
