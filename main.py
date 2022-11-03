@@ -203,7 +203,7 @@ class Song(Music):
         # TODO: filter lyrics for tags using regex
         lyrics = re.sub(r"^.*Lyrics(\n)?", "", lyrics) # <Songname> "Lyrics" (\n)?
         lyrics = re.sub(r"\d*Embed$", "", lyrics) # ... <digits>"Embed"
-        lyrics = re.sub("(\u205f|\u0435|\u2014|\u2019|) ?", " ", lyrics) # Unicode space variants # TODO: check if those are all unicode
+        lyrics = re.sub("(\u205f|\u0435|\u2014|\u2019) ?", " ", lyrics) # Unicode space variants # TODO: check if those are all unicode
         lyrics = re.sub(r"\n+", r"\n", lyrics) # squeezes multiple newlines into one
         lyrics = re.sub(r" +", r" ", lyrics) # squeezes multiple spaces into one
         return lyrics
@@ -308,8 +308,7 @@ class Album(Music):
                     album.songs[name] = song
                     if not song.lyrics:
                         album.missing_lyrics[name]= song_uri
-            
-
+        
         return album
 
     def toJSON(self):
@@ -432,7 +431,7 @@ class Songcrawler():
         # TODO: flesh logic out here
         if isinstance(result, Artist):
             result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
-                         features_wanted=r.features_wanted, use_genius_album=self.use_genius_album, limit=self.limit)
+                         features_wanted=self.features_wanted, use_genius_album=self.use_genius_album, limit=self.limit)
         else:
             result.save(self.folder, self.filetype)
         return result
