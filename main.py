@@ -71,7 +71,7 @@ song_regex = "edit(ed)?|clean|remix" # TODO: use excluded terms instead, or make
 def main():
     # This is used only when accessing the program through the CLI
     # Keep in mind that the songcrawler class should also work independently as a python module
-    sc = Songcrawler(lyrics_requested=args.no_lyrics,
+    sc = Songcrawler(lyrics_requested=not args.no_lyrics,
                     filetype=args.filetype, 
                     use_genius_album=args.use_genius_album, 
                     region=args.region,
@@ -127,12 +127,14 @@ class Music(ABC):
                 # try to find song_uri and get_song
                 pass
 
-class Song():
-    def __init__(self, name, album, artist, features, lyrics=None) -> None:
+class Song(Music):
+    def __init__(self, uri, name, album, artist, audio_features, feature_artists = None, lyrics=None) -> None:
+        self.uri = uri
         self.name = name
         self.album = album
         self.artist = artist
-        self.features = features
+        self.audio_features = audio_features
+        self.feature_artists = feature_artists
         self.lyrics = lyrics
     
     def __repr__(self) -> str:
@@ -150,9 +152,10 @@ class Song():
         song_name = spotify_song['name']
         artist_name = spotify_song['artists'][0]['name']
         album_name = spotify_song['album']['name']
-        features = spotify.audio_features(tracks=[uri])[0]
-        features = dict(filter(lambda i:i[0] in features_wanted, features.items()))
-        song = Song(song_name, album_name, artist_name, features)
+        feature_artists = [artist["name"] for artist in spotify_song['artists']][1:]
+        audio_features = spotify.audio_features(tracks=[uri])[0]
+        audio_features = dict(filter(lambda i:i[0] in features_wanted, audio_features.items()))
+        song = Song(uri, song_name, album_name, artist_name, audio_features, feature_artists=feature_artists)
 
         # TODO: Either make this a classmethod or move this to song
         if lyrics_requested:
@@ -241,7 +244,8 @@ class Song():
                 album.songs[self.name] = self
             else:
                 # TODO: would be nice to include song_to_uri here, but need to save song_uri for that first
-                album = Album(self.album, self.artist, songs={self.name:self})
+                # TODO: uses the wrong uri here if request is of type song. Can only get the right uri if I modify song class
+                album = Album(self.uri, self.album, self.artist, songs={self.name:self})
 
             with open(album_path, "w") as f:
                 f.write(album.toJSON())
@@ -250,8 +254,9 @@ class Song():
         else:
             raise Exception(f'Unknown file type: \"{self.filetype}\". Please select either \"json\" or \"csv\"')
 
-class Album():
-    def __init__(self, name, artist, songs_to_uri=None, songs={}, missing_lyrics={}) -> None:
+class Album(Music):
+    def __init__(self, uri, name, artist, songs_to_uri=None, songs={}, missing_lyrics={}) -> None:
+        self.uri = uri
         self.name = name
         self.artist = artist
         self.songs_to_uri = songs_to_uri
@@ -267,7 +272,7 @@ class Album():
         album_name = spotify_album['name']
         songs_to_uri = {entry["name"]:entry["uri"] for entry in spotify_album['tracks']['items']}
 
-        album = Album(album_name, artist_name, songs_to_uri, songs={})
+        album = Album(uri, album_name, artist_name, songs_to_uri, songs={})
 
         if use_genius_album:
         # TODO: I can still use genius's albums, I just need to find a way to align it by song
@@ -320,8 +325,9 @@ class Album():
     
 
 
-class Artist():
-    def __init__(self, name, albums_to_uri=None, albums={}, missing_lyrics=None) -> None:
+class Artist(Music):
+    def __init__(self, uri, name, albums_to_uri=None, albums={}, missing_lyrics=None) -> None:
+        self.uri = uri
         self.name = name
         self.albums_to_uri = albums_to_uri
         self.albums = {}
@@ -335,7 +341,7 @@ class Artist():
             albums_to_uri = {album["name"]:album["uri"] for album in spotify_artist['items'] if not re.search(regex_filter, album["name"], re.I)}
         else:
             albums_to_uri = {album["name"]:album["uri"] for album in spotify_artist['items']}
-        artist = Artist(artist_name, albums_to_uri)
+        artist = Artist(uri, artist_name, albums_to_uri)
         return artist
 
     def get_albums(self, folder, filetype, lyrics_requested, features_wanted, use_genius_album=False, limit=50):
@@ -357,8 +363,8 @@ class Artist():
                       
             
 
-class Playlist():
-    def __init(self, name) -> None:
+class Playlist(Music):
+    def __init__(self, name) -> None:
         self.name = name
     
     @classmethod
