@@ -5,6 +5,7 @@ import spotipy
 import re
 from spotipy.oauth2 import SpotifyClientCredentials
 import json
+from abc import ABC, abstractmethod
 
 
 
@@ -21,16 +22,10 @@ parser.add_argument("--use_genius_album", default=False, action='store_true', he
 parser.add_argument("--region", type=str, default="US", help="Region to query songs for Spotify API. Helps prevent duplicate album entries.")
 parser.add_argument("--folder", type=str, default="data", help="Output folder")
 parser.add_argument("--overwrite", default=False, action='store_true', help="Overwrites existing songs/albums/artists/playlists")
-# parser.add_argument("filename", type=str, default="data/combined.txt", help="Path of the input file.")
-# parser.add_argument("--filter_lang", metavar="lang", type=str, default="en", help="Filters all lines not deemed to be of the given language.")
-# parser.add_argument("--min_distance", type=int, default=3, help="Filters out all lines with a Levenshtein distance up to this value")
-# parser.add_argument("--min_words", type=int, default=3, help="Filter all lines which have less than min_words.")
-# parser.add_argument("--split", type=float, default=0.8, help="Splitpoint for train/test set.")
-# parser.add_argument("--overwrite", default=False, action='store_true', help="Overwrite existing files")
-# album type for artist request
+parser.add_argument("--album_type",type=str, default="album", help="Type albums to retrieve when querying an album. Possible Values: album, ep")
 args = parser.parse_args()
 
-
+#TODO: add all possible album types to --album_type help
 #print(args.filename)
 
 #----------------------------------------------------------------------------
@@ -75,40 +70,14 @@ song_regex = "edit(ed)?|clean|remix" # TODO: use excluded terms instead, or make
 def main():
     # This is used only when accessing the program through the CLI
     # Keep in mind that the songcrawler class should also work independently as a python module
-    sc = Songcrawler(lyrics_requested=args.no_lyrics,
+    sc = Songcrawler(lyrics_requested=not args.no_lyrics,
                     filetype=args.filetype, 
                     use_genius_album=args.use_genius_album, 
                     region=args.region,
                     folder=args.folder,
-                    overwrite=args.overwrite)
+                    overwrite=args.overwrite,
+                    album_type=args.album_type)
     sc.request(args.query)
-
-#----------------------------------------------------------------------------
-#                               Request
-#----------------------------------------------------------------------------
-
-class Request():
-    def __init__(self, query) -> None:
-        self.query = query
-        self.type = self.get_request_type(query)
-    
-    def get_request_type(self, query):
-        """
-        Differentiates whether the query is a genius_id, spotify_uri, or songname
-        """
-        if query.isdigit():
-            return("genius")
-        elif query.startswith("spotify:"):
-            return("spotify")
-        else:
-            return("song")
-
-    def get_spotify_type(self, uri):
-        """
-        Takes a spotify uri and returns the type of resource it requests i.e. song, album, artist, playlist
-        """
-        uri = uri.split(":")[1]    
-        return uri
 
 #----------------------------------------------------------------------------
 #                               Music
@@ -118,12 +87,53 @@ class Request():
 # Each of those should have the method to convert them to strings (__repr__?) and how to save them to a file
 # Could maybe actually use an abstract class and make them inherit this?
 
-class Song():
-    def __init__(self, name, album, artist, features, lyrics=None) -> None:
+class Music(ABC):
+    @abstractmethod
+    def from_spotify(uri):
+        print("implement me")
+    
+    @classmethod
+    def request(cls, request):
+        if request.type == "spotify": # if request.spotify_type ? 
+            match request.get_spotify_type(): # This should be an attribute of request really
+                case "track":
+                    song = Song.from_spotify(request.query, lyrics_requested=request.lyrics_requested, 
+                                features_wanted=request.features_wanted)#, genius_id=genius_id) TODO: figure out genius ID here
+                    return song
+                case "album":
+                    album = Album.from_spotify(request.query, request.lyrics_requested, request.features_wanted,
+                                                request.use_genius_album)
+                    return album
+                case "artist":
+                    # saving within get_artist method after every album in case program crashes
+                    artist = Artist.from_spotify(request.query, album_type=request.album_type, regex_filter=request.album_regex,
+                                                region=request.region, limit=request.limit)
+                    return artist
+                case "playlist":
+                    playlist = Playlist.from_spotify(uri=request.query)
+                    return playlist
+                case _:
+                    raise Exception(f'Unknown request type: \"{request.type}\"')
+        elif request.type == "genius":
+            result = Song.get_lyrics(genius_id=request.query)
+            print(result)
+            # TODO: Figure out how to save this
+        else:
+            if request.lyrics_only:
+                result = Song.get_lyrics(request.query)
+                # TODO: figure out how to save this
+            else:
+                # try to find song_uri and get_song
+                pass
+
+class Song(Music):
+    def __init__(self, uri, name, album, artist, audio_features, feature_artists = None, lyrics=None) -> None:
+        self.uri = uri
         self.name = name
         self.album = album
         self.artist = artist
-        self.features = features
+        self.audio_features = audio_features
+        self.feature_artists = feature_artists
         self.lyrics = lyrics
     
     def __repr__(self) -> str:
@@ -141,9 +151,10 @@ class Song():
         song_name = spotify_song['name']
         artist_name = spotify_song['artists'][0]['name']
         album_name = spotify_song['album']['name']
-        features = spotify.audio_features(tracks=[uri])[0]
-        features = dict(filter(lambda i:i[0] in features_wanted, features.items()))
-        song = Song(song_name, album_name, artist_name, features)
+        feature_artists = [artist["name"] for artist in spotify_song['artists']][1:]
+        audio_features = spotify.audio_features(tracks=[uri])[0]
+        audio_features = dict(filter(lambda i:i[0] in features_wanted, audio_features.items()))
+        song = Song(uri, song_name, album_name, artist_name, audio_features, feature_artists=feature_artists)
 
         # TODO: Either make this a classmethod or move this to song
         if lyrics_requested:
@@ -232,7 +243,8 @@ class Song():
                 album.songs[self.name] = self
             else:
                 # TODO: would be nice to include song_to_uri here, but need to save song_uri for that first
-                album = Album(self.album, self.artist, songs={self.name:self})
+                # TODO: uses the wrong uri here if request is of type song. Can only get the right uri if I modify song class
+                album = Album(self.uri, self.album, self.artist, songs={self.name:self})
 
             with open(album_path, "w") as f:
                 f.write(album.toJSON())
@@ -241,8 +253,11 @@ class Song():
         else:
             raise Exception(f'Unknown file type: \"{self.filetype}\". Please select either \"json\" or \"csv\"')
 
-class Album():
-    def __init__(self, name, artist, songs_to_uri=None, songs={}, missing_lyrics={}) -> None:
+
+
+class Album(Music):
+    def __init__(self, uri, name, artist, songs_to_uri=None, songs={}, missing_lyrics={}) -> None:
+        self.uri = uri
         self.name = name
         self.artist = artist
         self.songs_to_uri = songs_to_uri
@@ -258,7 +273,7 @@ class Album():
         album_name = spotify_album['name']
         songs_to_uri = {entry["name"]:entry["uri"] for entry in spotify_album['tracks']['items']}
 
-        album = Album(album_name, artist_name, songs_to_uri, songs={})
+        album = Album(uri, album_name, artist_name, songs_to_uri, songs={})
 
         if use_genius_album:
         # TODO: I can still use genius's albums, I just need to find a way to align it by song
@@ -311,8 +326,9 @@ class Album():
     
 
 
-class Artist():
-    def __init__(self, name, albums_to_uri=None, albums={}, missing_lyrics=None) -> None:
+class Artist(Music):
+    def __init__(self, uri, name, albums_to_uri=None, albums={}, missing_lyrics=None) -> None:
+        self.uri = uri
         self.name = name
         self.albums_to_uri = albums_to_uri
         self.albums = {}
@@ -326,7 +342,7 @@ class Artist():
             albums_to_uri = {album["name"]:album["uri"] for album in spotify_artist['items'] if not re.search(regex_filter, album["name"], re.I)}
         else:
             albums_to_uri = {album["name"]:album["uri"] for album in spotify_artist['items']}
-        artist = Artist(artist_name, albums_to_uri)
+        artist = Artist(uri, artist_name, albums_to_uri)
         return artist
 
     def get_albums(self, folder, filetype, lyrics_requested, features_wanted, use_genius_album=False, limit=50):
@@ -348,8 +364,8 @@ class Artist():
                       
             
 
-class Playlist():
-    def __init(self, name) -> None:
+class Playlist(Music):
+    def __init__(self, name) -> None:
         self.name = name
     
     @classmethod
@@ -373,7 +389,7 @@ class Playlist():
 #----------------------------------------------------------------------------
 
 class Songcrawler():
-    def __init__(self, lyrics_requested=True, filetype="json", use_genius_album=False, region="US", folder="data", overwrite=False, limit=50) -> None:
+    def __init__(self, lyrics_requested=True, filetype="json", use_genius_album=False, region="US", folder="data", overwrite=False, limit=50, album_type="album") -> None:
         self.lyrics_requested = lyrics_requested
         self.filetype = filetype
         self.features_wanted = ['danceability', 'energy', 'key', 'loudness',
@@ -386,70 +402,59 @@ class Songcrawler():
         self.folder = folder
         self.overwrite = overwrite
         self.limit = limit
+        self.album_type = album_type
 
-    def request(self, query, lyrics_requested=True):
+    def request(self, query, lyrics_requested=None):
         """
         Make a request for a song, album, artist or playlist.
         Returns the spotify statistics and by default also the lyrics
         """
-        request = Request(query)
-
-        # TODO: calling this method by default sets lyrics_requested to true, which may overwrite a global param
-        self.lyrics_requested = lyrics_requested # does this make sense. So the lyrics_requested param doesn't need to get passed down
-        if request.type == "spotify":
-            match request.get_spotify_type(query):
-                case "track":
-                    song = self.get_song(query)
-                    song.save(self.folder, self.filetype)
-                case "album":
-                    album = self.get_album(query)
-                    album.save(self.folder, self.filetype)
-                case "artist":
-                    # saving within get_artist method after every album in case program crashes
-                    self.get_artist(query)
-                case "playlist":
-                    result = self.get_playlist(query)
-                    self._save_playlist(result)
-                case _:
-                    raise Exception(f'Unknown request type: \"{request.type}\"')
-        elif request.type == "genius":
-            result = self.get_lyrics(query)
-            print(result)
-            # TODO: Figure out how to save this
+        if not lyrics_requested:
+            lyrics_requested = self.lyrics_requested
+        r = Request(query)
+        result = Music.request(r)
+        # TODO: flesh logic out here
+        if isinstance(result, Artist):
+            result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
+                         features_wanted=r.features_wanted, use_genius_album=self.use_genius_album, limit=self.limit)
         else:
-            if self.lyrics_only:
-                result = self.get_lyrics(query)
-                # TODO: figure out how to save this
-            else:
-                # try to find song_uri and get_song
-                pass
+            result.save(self.folder, self.filetype)
+        return result
         
+#----------------------------------------------------------------------------
+#                               Request
+#----------------------------------------------------------------------------
 
-    def get_song(self, song_uri, genius_id=None): # num retries should be part of the CLI
-        # Get song from spotify
-        song = Song.from_spotify(song_uri, lyrics_requested=self.lyrics_requested, 
-                                features_wanted=self.features_wanted, genius_id=genius_id)
-        return song
+class Request(Songcrawler):
+    def __init__(self, query) -> None:
+        super().__init__()
+        # TODO: add param for: genius_id
+        self.query = query
+        self.type = self.get_request_type(query)
+        
+        if self.type == "spotify":
+            self.spotify_type = self.get_spotify_type()
+        else:
+            self.spotify_type = None
+    
+    def get_request_type(self, query):
+        """
+        Differentiates whether the query is a genius_id, spotify_uri, or songname
+        """
+        if query.isdigit():
+            return("genius")
+        elif query.startswith("spotify:"):
+            return("spotify")
+        else:
+            return("song")
 
+    def get_spotify_type(self):
+        """
+        Returns the type of resource the self.query requests i.e. song, album, artist, playlist
+        """
+        uri = self.query.split(":")[1]    
+        return uri
 
-    def get_album(self, album_uri): # TODO: flag for using genius albums?
-        album = Album.from_spotify(album_uri, self.lyrics_requested, self.features_wanted,
-                                    self.use_genius_album)
-        return album
-
-
-    def get_artist(self, artist_uri, album_type="album"):
-        artist = Artist.from_spotify(uri=artist_uri, album_type=album_type, regex_filter=self.album_regex,
-                                    region="US", limit=self.limit)
-
-        artist.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=self.lyrics_requested,
-                         features_wanted=self.features_wanted, use_genius_album=self.use_genius_album, limit=self.limit)
-        return(artist)
-
-    def get_playlist(self, playlist_uri):
-        playlist = Playlist.from_spotify(uri=playlist_uri)
-
-        return playlist
 
 if __name__=="__main__":
     main()
@@ -465,11 +470,3 @@ if __name__=="__main__":
 
 # If it doesn't find anything then the lyrics are just empty e.g. New York City Rage Fest on Indicud
 # Would be cool if it included the song / album uri for debugging
-
-#########################################################
-# TODO: Important implement self.overwrite
-#       Could the music parts be a subclass of songcrawler to access features_requested?
-
-
-#########################################################
-
