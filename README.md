@@ -1,6 +1,11 @@
 # SongCrawler
 Crawl Spotify and Genius for all the songs of your favourite artist!
 
+
+# BACKUP
+This branch is mostly for easy access to an old implementation of this project. Most of it is not wanted or required, but who knows, maybe I'll need it...
+I am aware that I could just use version history, but this is just convenient.
+
 ## About
 This repo is fairly old and I wrote this before I had any real idea about how to code. I will be the first to admit that this is horribly written.  
 
