@@ -166,57 +166,58 @@ class Song(Music):
     @classmethod
     def from_spotify(cls, uri, lyrics_requested, features_wanted, genius_id=None):
         spotify_song = spotify.track(uri)
+
         song_name = spotify_song['name']
         artist_name = spotify_song['artists'][0]['name']
         album_name = spotify_song['album']['name']
         feature_artists = [artist["name"] for artist in spotify_song['artists']][1:]
         audio_features = spotify.audio_features(tracks=[uri])[0]
         audio_features = dict(filter(lambda i:i[0] in features_wanted, audio_features.items()))
-        song = Song(uri, song_name, album_name, artist_name, audio_features, feature_artists=feature_artists)
 
-        # TODO: Either make this a classmethod or move this to song
+        song = Song(uri=uri, song_name=song_name, album_name=album_name, artist_name=artist_name, 
+                    audio_features=audio_features, feature_artists=feature_artists)
+
         if lyrics_requested:
             if genius_id:
                 song.lyrics = Song.get_lyrics(genius_id = genius_id)
             # Get song lyrics
             if not song.lyrics:
-                song.lyrics = Song.get_lyrics(song=song_name, artist=artist_name)
+                song.lyrics = Song.get_lyrics(song_name=song_name, artist_name=artist_name)
 
         print(f"Retrieved Song: {song.song_name}")
         return song
 
     @classmethod
-    def get_lyrics(cls, genius_id=None, song=None, artist=None, clean_lyrics=True):
+    def get_lyrics(cls, genius_id=None, song_name=None, artist_name=None, clean_lyrics=True):
         """
         Takes a genius_id or song name and returns the lyrics for it
         """
         if genius_id:
             pass
-        elif (song == None or artist == None):
+        elif (song_name == None or artist_name == None):
             raise Exception("requires either a genius_id or a songname and artist")
         
         if genius_id:
                 lyrics = genius.search_song(song_id=genius_id).lyrics # TODO: should try without genius id if this fails
         else:
-            name_filtered = re.sub(r" *(\(.*\)|feat\.?.*|ft\..*)", "", song)
-            genius_song = genius.search_song(name_filtered, artist)
+            name_filtered = re.sub(r" *(\(.*\)|feat\.?.*|ft\..*)", "", song_name)
+            genius_song = genius.search_song(title=name_filtered, artist=artist_name)
             try:
                 lyrics = genius_song.lyrics
             except:
                 lyrics = ""
+
         if clean_lyrics:
             lyrics = Song.clean_lyrics(lyrics)
+
         return lyrics
 
     #TODO: would this make sense to not have as class method? Depends on genius class (i.e. without spotify i.g.)
     @classmethod
     def clean_lyrics(cls, lyrics):
-        # TODO: This would make more sense as part of the song class?
-        #       -> Would this work with non-spotify songs? Could just be a classmethod 
-        # TODO: filter lyrics for tags using regex
         lyrics = re.sub(r"^.*Lyrics(\n)?", "", lyrics) # <Songname> "Lyrics" (\n)?
         lyrics = re.sub(r"\d*Embed$", "", lyrics) # ... <digits>"Embed"
-        lyrics = re.sub("(\u205f|\u0435|\u2014|\u2019) ?", " ", lyrics) # Unicode space variants # TODO: check if those are all unicode
+        lyrics = re.sub("(\u205f|\u0435|\u2014|\u2019) ?", " ", lyrics) # Unicode space variants # TODO: check which characters they correspond to
         lyrics = re.sub(r"\n+", r"\n", lyrics) # squeezes multiple newlines into one
         lyrics = re.sub(r" +", r" ", lyrics) # squeezes multiple spaces into one
         return lyrics
@@ -233,9 +234,10 @@ class Song(Music):
         Overwrites the song if it already exists
         Caveat: lyrics will always be appended to the end (for .json), this may mess up song order
         """
+        # TODO:
         # could have album path included in here and just add .json or .csv or _lyrics.json respectively
         # best would even be to have filetype include the dot (i.e.: .csv instead of csv) so you could just add strings together
-        path = Music.album_folder(folder, self.artist_name, self.album_name)
+        path = Music.album_folder(folder, artist_name = self.artist_name, album_name = self.album_name)
         
         if filetype == "json":
             album_path = os.path.join(path, f"{self.album_name}.json")
@@ -268,10 +270,11 @@ class Song(Music):
             else:
                 # TODO: would be nice to include song_to_uri here, but need to save song_uri for that first
                 # TODO: uses the wrong uri here if request is of type song. Can only get the right uri if I modify song class
-                album = Album(self.uri, self.album_name, self.artist_name, songs={self.song_name:self})
+                album = Album(uri = self.uri, album_name= self.album_name, artist_name = self.artist_name, songs={self.song_name:self})
 
             with open(album_path, "w") as f:
                 f.write(album.to_json())
+
         elif filetype == "csv":
             # TODO: make open up album and then only overwrite the requested song
             album_path = os.path.join(path, f"{self.album_name}.csv")
@@ -279,7 +282,7 @@ class Song(Music):
                 writer = csv.writer(stream)
                 writer.writerow(self)
         else:
-            raise Exception(f'Unknown file type: \"{self.filetype}\". Please select either \"json\" or \"csv\"')
+            raise Exception(f'Unknown file type: \"{filetype}\". Please select either \"json\" or \"csv\"')
 
 
 
@@ -301,7 +304,7 @@ class Album(Music):
         album_name = spotify_album['name']
         songs_to_uri = {entry["name"]:entry["uri"] for entry in spotify_album['tracks']['items']}
 
-        album = Album(uri, album_name, artist_name, songs_to_uri, songs={})
+        album = Album(uri = uri, album_name = album_name, artist_name = artist_name, songs_to_uri = songs_to_uri, songs={})
 
         if use_genius_album:
         # TODO: I can still use genius's albums, I just need to find a way to align it by song
@@ -318,6 +321,7 @@ class Album(Music):
                     album.missing_lyrics[name]= song_uri # TODO: currently for logging, but could maybe find a better structure to automate
         else:
             if PARALLELIZE:
+                # TODO: add try/except/final(?)
                 with Pool() as pool: #uri, lyrics_requested, features_wanted
                     results = pool.map(Song.multi_run_wrapper, list(zip(songs_to_uri.values(), repeat([lyrics_requested, features_wanted]))))
                     results = {song.song_name:song for song in results}
@@ -338,10 +342,10 @@ class Album(Music):
         return json.dumps(self, default=lambda o: o.__dict__, indent=4)
     
     def save(self, folder, filetype):
-        path = Music.album_folder(folder, self.artist_name, self.album_name)
+        path = Music.album_folder(folder=folder, artist_name = self.artist_name, album_name = self.album_name)
 
         if filetype == "json":
-            #TODO: not a nice way to deal with this. What if I still want to use this class after?
+            #TODO: delattr is not a nice way to deal with this. What if I still want to use this class after?
             #      maybe create a copy of songs / the album that gets saved and then deleted after?
             lyrics = {}
             for name, song in self.songs.items():
@@ -385,7 +389,7 @@ class Artist(Music):
             albums_to_uri = {album["name"]:album["uri"] for album in spotify_artist['items'] if not re.search(regex_filter, album["name"], re.I)}
         else:
             albums_to_uri = {album["name"]:album["uri"] for album in spotify_artist['items']}
-        artist = Artist(uri, artist_name, albums_to_uri)
+        artist = Artist(uri=uri, artist_name=artist_name, albums_to_uri=albums_to_uri)
         return artist
 
     def get_albums(self, folder, filetype, lyrics_requested, features_wanted, use_genius_album=False, limit=50):
@@ -469,7 +473,7 @@ class Songcrawler():
 #----------------------------------------------------------------------------
 
 class Request(Songcrawler):
-    def __init__(self, query) -> None:
+    def __init__(self, query: str) -> None:
         super().__init__()
         # TODO: add param for: genius_id
         self.query = query
