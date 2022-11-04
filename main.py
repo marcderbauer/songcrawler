@@ -18,10 +18,9 @@ import csv
 # TODO: check best practices regarding spaces / underscores
 parser = argparse.ArgumentParser(description='Gather Spotify statistics and Genius lyrics.')
 parser.add_argument("query", metavar="Spotify URI, Genius ID or Songname", type=str, help="Either a Spotify uri, a songname or a genius id")
-parser.add_argument("--filetype", type=str, default="json", help="Filetype to save output as. Possible options: .json, .csv")
+parser.add_argument("--filetype", type=str, default=".json", help="Filetype to save output as. Possible options: .json, .csv")
 parser.add_argument("--genius", default=False, action='store_true', help="Lists alternative Genius ids when main argument is a songname")
 parser.add_argument("--no_lyrics", default=False, action='store_true', help="Skips gathering lyrics and only queries spotify statistics.")
-parser.add_argument("--use_genius_album", default=False, action='store_true', help="Uses Genius albums, experimental feature for artists who have different tracks with the same name.")
 parser.add_argument("--region", type=str, default="US", help="Region to query songs for Spotify API. Helps prevent duplicate album entries.")
 parser.add_argument("--folder", type=str, default="data", help="Output folder")
 parser.add_argument("--overwrite", default=False, action='store_true', help="Overwrites existing songs/albums/artists/playlists")
@@ -74,7 +73,6 @@ def main():
     # Keep in mind that the songcrawler class should also work independently as a python module
     sc = Songcrawler(lyrics_requested=not args.no_lyrics,
                     filetype=args.filetype, 
-                    use_genius_album=args.use_genius_album, 
                     region=args.region,
                     folder=args.folder,
                     overwrite=args.overwrite,
@@ -103,8 +101,7 @@ class Music(ABC):
                                 features_wanted=request.features_wanted)#, genius_id=genius_id) TODO: figure out genius ID here
                     return song
                 case "album":
-                    album = Album.from_spotify(request.query, request.lyrics_requested, request.features_wanted,
-                                                request.use_genius_album)
+                    album = Album.from_spotify(request.query, request.lyrics_requested, request.features_wanted)
                     return album
                 case "artist":
                     # saving within get_artist method after every album in case program crashes
@@ -238,9 +235,9 @@ class Song(Music):
         # could have album path included in here and just add .json or .csv or _lyrics.json respectively
         # best would even be to have filetype include the dot (i.e.: .csv instead of csv) so you could just add strings together
         path = Music.album_folder(folder, artist_name = self.artist_name, album_name = self.album_name)
-        
-        if filetype == "json":
-            album_path = os.path.join(path, f"{self.album_name}.json")
+        album_path = os.path.join(path, f"{self.album_name}{filetype}")
+
+        if filetype == ".json":
             lyrics_path = album_path.split(".json")[0] + "_lyrics.json" # TODO: probably a nicer way to do this
 
             if self.lyrics:
@@ -275,9 +272,10 @@ class Song(Music):
             with open(album_path, "w") as f:
                 f.write(album.to_json())
 
-        elif filetype == "csv":
+        elif filetype == ".csv":
             # TODO: make open up album and then only overwrite the requested song
-            album_path = os.path.join(path, f"{self.album_name}.csv")
+            # Best way to go about this: merge it with the method for .json
+            # 1. If lyrics requested and the lyrics_path exists: read
             with open(album_path, "w") as stream:
                 writer = csv.writer(stream)
                 writer.writerow(self)
@@ -296,7 +294,7 @@ class Album(Music):
         self.missing_lyrics = missing_lyrics # name:uri of missing songs
 
     @classmethod    # TODO: from a user standpoint it would be nice to switch lyrics_requested and features wanted (order)
-    def from_spotify(cls, uri, lyrics_requested, features_wanted, use_genius_album=False):
+    def from_spotify(cls, uri, lyrics_requested, features_wanted):
 
         spotify_album = spotify.album(uri)
 
@@ -306,36 +304,29 @@ class Album(Music):
 
         album = Album(uri = uri, album_name = album_name, artist_name = artist_name, songs_to_uri = songs_to_uri, songs={})
 
-        if use_genius_album:
-        # TODO: I can still use genius's albums, I just need to find a way to align it by song
-        # genius albums do include the title, even if it's a bit different from the titles in spotify
-        # Could maybe use that?
-            genius_album = genius.search_album(album_name, artist_name)
-            album.genius_ids = [track.id for track in genius_album.tracks]
-
-            for index, (name, song_uri) in enumerate(songs_to_uri.items()):
-                song = Song.from_spotify(uri=song_uri, lyrics_requested=lyrics_requested, 
-                                        features_wanted=features_wanted, genius_id=album.genius_ids[index])
-                album.songs[name] = song
-                if not song.lyrics:
-                    album.missing_lyrics[name]= song_uri # TODO: currently for logging, but could maybe find a better structure to automate
-        else:
-            if PARALLELIZE:
-                # TODO: add try/except/final(?)
+        if PARALLELIZE:
+            # TODO: add try/except/final(?)
+            try:
                 with Pool() as pool: #uri, lyrics_requested, features_wanted
                     results = pool.map(Song.multi_run_wrapper, list(zip(songs_to_uri.values(), repeat([lyrics_requested, features_wanted]))))
                     results = {song.song_name:song for song in results}
                     for songname in songs_to_uri.keys():
                         album.songs[songname] = results[songname]
-                        
-            else: # Keeping old method for debugging
-                for name, song_uri in songs_to_uri.items():
-                    song = Song.from_spotify(uri=song_uri, lyrics_requested=lyrics_requested, 
-                                            features_wanted=features_wanted)
-                    album.songs[name] = song
-                    if not song.lyrics:
-                        album.missing_lyrics[name]= song_uri
-        
+
+            except Exception as e:
+                # TODO This could be handled better in the future, but should do the trick for now
+                print(f"Error while querying album {album_name}.\n Error message under errors.txt")
+                with open ("errors.txt", "a") as f:
+                    f.write(e)
+                    
+        else: # Keeping old method for debugging
+            for name, song_uri in songs_to_uri.items():
+                song = Song.from_spotify(uri=song_uri, lyrics_requested=lyrics_requested, 
+                                        features_wanted=features_wanted)
+                album.songs[name] = song
+                if not song.lyrics:
+                    album.missing_lyrics[name]= song_uri
+    
         return album
 
     def to_json(self):
@@ -343,8 +334,8 @@ class Album(Music):
     
     def save(self, folder, filetype):
         path = Music.album_folder(folder=folder, artist_name = self.artist_name, album_name = self.album_name)
-
-        if filetype == "json":
+        album_path = os.path.join(path, f"{self.album_name}{filetype}")
+        if filetype == ".json":
             #TODO: delattr is not a nice way to deal with this. What if I still want to use this class after?
             #      maybe create a copy of songs / the album that gets saved and then deleted after?
             lyrics = {}
@@ -353,14 +344,13 @@ class Album(Music):
                 delattr(song, "lyrics")
             
             delattr(self, "songs_to_uri") 
-            with open(os.path.join(path, f"{self.album_name}.json"), "w") as f:
+            with open(album_path, "w") as f:
                 f.write(self.to_json())
             
             with open(os.path.join(path, f"{self.album_name}_lyrics.json"), "w") as f:
                 f.write(json.dumps(lyrics, indent=4)) 
 
-        elif filetype == "csv":
-            album_path = os.path.join(path, f"{self.album_name}.csv")
+        elif filetype == ".csv":
             header = list(self.songs.values())[0]._get_csv_header() # A bit ugly to retrieve it like this, but can't make it classmethod because features wanted is attribute
             with open(album_path, "w") as stream:
                 writer = csv.writer(stream)
@@ -371,7 +361,6 @@ class Album(Music):
             raise Exception(f'Unknown file type: \"{filetype}\". Please select either \"json\" or \"csv\"')
 
     
-
 
 class Artist(Music):
     def __init__(self, uri, name, albums_to_uri=None, albums={}, missing_lyrics=None) -> None:
@@ -392,7 +381,7 @@ class Artist(Music):
         artist = Artist(uri=uri, artist_name=artist_name, albums_to_uri=albums_to_uri)
         return artist
 
-    def get_albums(self, folder, filetype, lyrics_requested, features_wanted, use_genius_album=False, limit=50):
+    def get_albums(self, folder, filetype, lyrics_requested, features_wanted, limit=50):
         """
         retrieves albums using albums_to_uri
         In a seperate method as saving albums is included in this method too (safer in case of crash)
@@ -403,8 +392,7 @@ class Artist(Music):
                 break
 
             print(f"\n {'-'*100}\n Album: {name}\n")
-            album = Album.from_spotify(uri=uri, lyrics_requested=lyrics_requested, features_wanted=features_wanted,
-                                        use_genius_album=use_genius_album)
+            album = Album.from_spotify(uri=uri, lyrics_requested=lyrics_requested, features_wanted=features_wanted)
             album.save(folder, filetype)
             self.albums[name] = album
             # TODO: find all missing songs across albums
@@ -436,13 +424,12 @@ class Playlist(Music):
 #----------------------------------------------------------------------------
 
 class Songcrawler():
-    def __init__(self, lyrics_requested=True, filetype="json", use_genius_album=False, region="US", folder="data", overwrite=False, limit=50, album_type="album") -> None:
+    def __init__(self, lyrics_requested=True, filetype="json", region="US", folder="data", overwrite=False, limit=50, album_type="album") -> None:
         self.lyrics_requested = lyrics_requested
         self.filetype = filetype
         self.features_wanted = ['danceability', 'energy', 'key', 'loudness',
                                 'mode', 'speechiness', 'acousticness', 'instrumentalness',
                                 'liveness', 'valence', 'tempo', 'time_signature', 'duration_ms']
-        self.use_genius_album = use_genius_album
         self.no_lyrics = {} # trackname: spotify_uri for songs without lyrics # Todo: remember to reset after each request
         self.region = region #setting country to US arbitrarily to avoid duplicates across regions
         self.album_regex = "Deluxe|Edition"
@@ -463,7 +450,7 @@ class Songcrawler():
         # TODO: flesh logic out here
         if isinstance(result, Artist):
             result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
-                         features_wanted=self.features_wanted, use_genius_album=self.use_genius_album, limit=self.limit)
+                         features_wanted=self.features_wanted, limit=self.limit)
         else:
             result.save(self.folder, self.filetype)
         return result
