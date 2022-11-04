@@ -298,8 +298,9 @@ class Album(Music):
             if PARALLELIZE:
                 with Pool() as pool: #uri, lyrics_requested, features_wanted
                     results = pool.map(Song.multi_run_wrapper, list(zip(songs_to_uri.values(), repeat([lyrics_requested, features_wanted]))))
+                    results = {song.name:song for song in results}
                     for songname in songs_to_uri.keys():
-                        album.songs[songname] = list(filter(lambda x: x.name == songname, results))[0]
+                        album.songs[songname] = results[songname]
                         
             else: # Keeping old method for debugging
                 for name, song_uri in songs_to_uri.items():
