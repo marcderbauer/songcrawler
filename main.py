@@ -140,20 +140,20 @@ class Music(ABC):
         return path
 
 class Song(Music):
-    def __init__(self, uri, name, album, artist, audio_features, feature_artists = None, lyrics=None) -> None:
+    def __init__(self, uri, song_name, album_name, artist_name, audio_features, feature_artists = None, lyrics=None) -> None:
         self.uri = uri
-        self.name = name
-        self.album = album
-        self.artist = artist
+        self.song_name = song_name
+        self.album_name = album_name
+        self.artist_name = artist_name
         self.audio_features = audio_features
         self.feature_artists = feature_artists
         self.lyrics = lyrics
     
     def __repr__(self) -> str:
         printstring = f"""
-        Name:           {self.name}
-        Album:          {self.album}
-        Artist:         {self.artist}
+        Name:           {self.song_name}
+        Album:          {self.album_name}
+        Artist:         {self.artist_name}
         Found Lyrics:   {f"Yes -- {self.lyrics[:50]}..." if self.lyrics else "No :("}    
         """
         return printstring
@@ -182,7 +182,7 @@ class Song(Music):
             if not song.lyrics:
                 song.lyrics = Song.get_lyrics(song=song_name, artist=artist_name)
 
-        print(f"Retrieved Song: {song.name}")
+        print(f"Retrieved Song: {song.song_name}")
         return song
 
     @classmethod
@@ -208,6 +208,7 @@ class Song(Music):
             lyrics = Song.clean_lyrics(lyrics)
         return lyrics
 
+    #TODO: would this make sense to not have as class method? Depends on genius class (i.e. without spotify i.g.)
     @classmethod
     def clean_lyrics(cls, lyrics):
         # TODO: This would make more sense as part of the song class?
@@ -221,10 +222,10 @@ class Song(Music):
         return lyrics
     
     def __iter__(self):
-        return iter([self.uri, self.name, self.album, self.artist, *self.audio_features.values(), self.feature_artists, self.lyrics])
+        return iter([self.uri, self.song_name, self.album_name, self.artist_name, *self.audio_features.values(), self.feature_artists, self.lyrics])
 
     def _get_csv_header(self):
-        return ["uri", "name", "album", "artist", *self.audio_features.keys(), "feature_artists", "lyrics"]
+        return ["uri", "song_name", "album_name", "artist_name", *self.audio_features.keys(), "feature_artists", "lyrics"]
 
     def save(self, folder, filetype):
         """
@@ -234,10 +235,10 @@ class Song(Music):
         """
         # could have album path included in here and just add .json or .csv or _lyrics.json respectively
         # best would even be to have filetype include the dot (i.e.: .csv instead of csv) so you could just add strings together
-        path = Music.album_folder(folder, self.artist, self.album)
+        path = Music.album_folder(folder, self.artist_name, self.album_name)
         
         if filetype == "json":
-            album_path = os.path.join(path, f"{self.album}.json")
+            album_path = os.path.join(path, f"{self.album_name}.json")
             lyrics_path = album_path.split(".json")[0] + "_lyrics.json" # TODO: probably a nicer way to do this
 
             if self.lyrics:
@@ -251,7 +252,7 @@ class Song(Music):
                 else:
                     lyrics = {}
 
-                lyrics[self.name] = self.lyrics
+                lyrics[self.song_name] = self.lyrics
                 delattr(self, "lyrics")
                 with open(lyrics_path, "w") as f:
                     f.write(json.dumps(lyrics, indent=4))
@@ -263,17 +264,17 @@ class Song(Music):
                 
                 album_json = json.loads(album_file)
                 album = Album(**album_json)    
-                album.songs[self.name] = self
+                album.songs[self.song_name] = self
             else:
                 # TODO: would be nice to include song_to_uri here, but need to save song_uri for that first
                 # TODO: uses the wrong uri here if request is of type song. Can only get the right uri if I modify song class
-                album = Album(self.uri, self.album, self.artist, songs={self.name:self})
+                album = Album(self.uri, self.album_name, self.artist_name, songs={self.song_name:self})
 
             with open(album_path, "w") as f:
                 f.write(album.to_json())
         elif filetype == "csv":
             # TODO: make open up album and then only overwrite the requested song
-            album_path = os.path.join(path, f"{self.album}.csv")
+            album_path = os.path.join(path, f"{self.album_name}.csv")
             with open(album_path, "w") as stream:
                 writer = csv.writer(stream)
                 writer.writerow(self)
@@ -283,10 +284,10 @@ class Song(Music):
 
 
 class Album(Music):
-    def __init__(self, uri, name, artist, songs_to_uri=None, songs={}, missing_lyrics={}) -> None:
+    def __init__(self, uri, album_name, artist_name, songs_to_uri=None, songs={}, missing_lyrics={}) -> None:
         self.uri = uri
-        self.name = name
-        self.artist = artist
+        self.album_name = album_name
+        self.artist_name = artist_name
         self.songs_to_uri = songs_to_uri
         self.songs = songs
         self.missing_lyrics = missing_lyrics # name:uri of missing songs
@@ -319,7 +320,7 @@ class Album(Music):
             if PARALLELIZE:
                 with Pool() as pool: #uri, lyrics_requested, features_wanted
                     results = pool.map(Song.multi_run_wrapper, list(zip(songs_to_uri.values(), repeat([lyrics_requested, features_wanted]))))
-                    results = {song.name:song for song in results}
+                    results = {song.song_name:song for song in results}
                     for songname in songs_to_uri.keys():
                         album.songs[songname] = results[songname]
                         
@@ -337,7 +338,7 @@ class Album(Music):
         return json.dumps(self, default=lambda o: o.__dict__, indent=4)
     
     def save(self, folder, filetype):
-        path = Music.album_folder(folder, self.artist, self.name)
+        path = Music.album_folder(folder, self.artist_name, self.album_name)
 
         if filetype == "json":
             #TODO: not a nice way to deal with this. What if I still want to use this class after?
@@ -348,14 +349,14 @@ class Album(Music):
                 delattr(song, "lyrics")
             
             delattr(self, "songs_to_uri") 
-            with open(os.path.join(path, f"{self.name}.json"), "w") as f:
+            with open(os.path.join(path, f"{self.album_name}.json"), "w") as f:
                 f.write(self.to_json())
             
-            with open(os.path.join(path, f"{self.name}_lyrics.json"), "w") as f:
+            with open(os.path.join(path, f"{self.album_name}_lyrics.json"), "w") as f:
                 f.write(json.dumps(lyrics, indent=4)) 
 
         elif filetype == "csv":
-            album_path = os.path.join(path, f"{self.name}.csv")
+            album_path = os.path.join(path, f"{self.album_name}.csv")
             header = list(self.songs.values())[0]._get_csv_header() # A bit ugly to retrieve it like this, but can't make it classmethod because features wanted is attribute
             with open(album_path, "w") as stream:
                 writer = csv.writer(stream)
