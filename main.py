@@ -1,16 +1,6 @@
 import argparse
-from music import Music, Artist
+from songcrawler import Songcrawler
 
-
-# ASCII Art: https://patorjk.com/software/taag/#p=display&v=0&f=Standard
-##########################################################################################
-#                            _                                        
-#                           / \   _ __ __ _ _ __   __ _ _ __ ___  ___ 
-#                          / _ \ | '__/ _` | '_ \ / _` | '__/ __|/ _ \
-#                         / ___ \| | | (_| | |_) | (_| | |  \__ \  __/
-#                        /_/   \_\_|  \__, | .__/ \__,_|_|  |___/\___|
-#                                     |___/|_|                                          
-# ########################################################################################    
 
 # TODO: check best practices regarding spaces / underscores
 parser = argparse.ArgumentParser(description='Gather Spotify statistics and Genius lyrics.')
@@ -27,18 +17,6 @@ args = parser.parse_args()
 #TODO: add all possible album types to --album_type help
 #print(args.filename)
 
-
-
-
-##########################################################################################
-#                                 __  __       _       
-#                                |  \/  | __ _(_)_ __  
-#                                | |\/| |/ _` | | '_ \ 
-#                                | |  | | (_| | | | | |
-#                                |_|  |_|\__,_|_|_| |_|
-#                                                                                           
-# ########################################################################################   
-
 def main():
     # This is used only when accessing the program through the CLI
     # Keep in mind that the songcrawler class should also work independently as a python module
@@ -49,91 +27,6 @@ def main():
                     overwrite=args.overwrite,
                     album_type=args.album_type)
     sc.request(args.query)
-
-
-
-##########################################################################################
-#                 ____                                            _           
-#                / ___|  ___  _ __   __ _  ___ _ __ __ ___      _| | ___ _ __ 
-#                \___ \ / _ \| '_ \ / _` |/ __| '__/ _` \ \ /\ / / |/ _ \ '__|
-#                 ___) | (_) | | | | (_| | (__| | | (_| |\ V  V /| |  __/ |   
-#                |____/ \___/|_| |_|\__, |\___|_|  \__,_| \_/\_/ |_|\___|_|   
-#                                  |___/                                                                              
-# ########################################################################################  
-
-class Songcrawler():
-    def __init__(self, lyrics_requested=True, filetype="json", region="US", folder="data", overwrite=False, limit=50, album_type="album") -> None:
-        self.lyrics_requested = lyrics_requested
-        self.filetype = filetype
-        self.features_wanted = ['danceability', 'energy', 'key', 'loudness',
-                                'mode', 'speechiness', 'acousticness', 'instrumentalness',
-                                'liveness', 'valence', 'tempo', 'time_signature', 'duration_ms']
-        self.no_lyrics = {} # trackname: spotify_uri for songs without lyrics # Todo: remember to reset after each request
-        self.region = region #setting country to US arbitrarily to avoid duplicates across regions
-        self.album_regex = "Deluxe|Edition"
-        self.folder = folder
-        self.overwrite = overwrite
-        self.limit = limit
-        self.album_type = album_type
-
-    def request(self, query, lyrics_requested=None):
-        """
-        Make a request for a song, album, artist or playlist.
-        Returns the spotify statistics and by default also the lyrics
-        """
-        if not lyrics_requested:
-            lyrics_requested = self.lyrics_requested
-        r = Request(query)
-        result = Music.request(r)
-        # TODO: flesh logic out here
-        if isinstance(result, Artist):
-            result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
-                         features_wanted=self.features_wanted, overwrite=self.overwrite, limit=self.limit)
-        else:
-            result.save(self.folder, self.filetype, overwrite=self.overwrite)
-        return result
-
-
-
-# ########################################################################################   
-#                            ____                            _   
-#                           |  _ \ ___  __ _ _   _  ___  ___| |_ 
-#                           | |_) / _ \/ _` | | | |/ _ \/ __| __|
-#                           |  _ <  __/ (_| | |_| |  __/\__ \ |_ 
-#                           |_| \_\___|\__, |\__,_|\___||___/\__|
-#                                         |_|                    
-# ########################################################################################     
-
-class Request(Songcrawler):
-    def __init__(self, query: str) -> None:
-        super().__init__()
-        # TODO: add param for: genius_id
-        self.query = query
-        self.type = self.get_request_type(query)
-        
-        if self.type == "spotify":
-            self.spotify_type = self.get_spotify_type()
-        else:
-            self.spotify_type = None
-    
-    def get_request_type(self, query):
-        """
-        Differentiates whether the query is a genius_id, spotify_uri, or songname
-        """
-        if query.isdigit():
-            return("genius")
-        elif query.startswith("spotify:"):
-            return("spotify")
-        else:
-            return("song")
-
-    def get_spotify_type(self):
-        """
-        Returns the type of resource the self.query requests i.e. song, album, artist, playlist
-        """
-        uri = self.query.split(":")[1]    
-        return uri
-
 
 if __name__=="__main__":
     main()
