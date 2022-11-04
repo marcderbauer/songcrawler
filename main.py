@@ -151,7 +151,7 @@ class Song(Music):
         Name:           {self.song_name}
         Album:          {self.album_name}
         Artist:         {self.artist_name}
-        Found Lyrics:   {f"Yes -- {self.lyrics[:50]}..." if self.lyrics else "No :("}    
+        Found Lyrics:   {f"{self.lyrics[:50]}..." if self.lyrics else "No :("}    
         """
         return printstring
     
@@ -230,7 +230,7 @@ class Song(Music):
         """
         Saves a song using the same structure used when saving albums
         Overwrites the song if it already exists
-        Caveat: lyrics will always be appended to the end (for .json), this may mess up song order
+        Caveat: lyrics will always be appended to the end, this may mess up song order
         """
         
         path = Music.album_folder(folder, artist_name = self.artist_name, album_name = self.album_name)
@@ -240,10 +240,9 @@ class Song(Music):
         # if path exists -> Doesn't mean song exists!
         if os.path.exists(album_path):
             album = Album.from_file(album_path)
-            if self.song_name in album.songs.keys():
-                if not overwrite:
-                    print(f"\nSong \"{self.song_name}\" exists already.\nPlease use the --overwrite flag to save it.\n")
-                    quit()
+            if self.song_name in album.songs.keys() and not overwrite:
+                print(f"\nSong \"{self.song_name}\" exists already.\nPlease use the --overwrite flag to save it.\n")
+                quit()
             else:
                 album.songs[self.song_name] = self
         else:
@@ -274,7 +273,6 @@ class Album(Music):
         album = Album(uri = uri, album_name = album_name, artist_name = artist_name, songs_to_uri = songs_to_uri, songs={})
 
         if PARALLELIZE:
-            # TODO: add try/except/final(?)
             try:
                 with Pool() as pool: #uri, lyrics_requested, features_wanted
                     results = pool.map(Song.multi_run_wrapper, list(zip(songs_to_uri.values(), repeat([lyrics_requested, features_wanted]))))
@@ -301,16 +299,34 @@ class Album(Music):
     @classmethod
     def from_file(cls, path):
         assert os.path.exists(path)
-        filetype = path.split(".")[-1]
+        filepath, filetype = os.path.splitext(path)
         
-        if filetype == "json":
+        if filetype == ".json":
+            # Album
             with open(path, "r") as f:
                 album_file = f.read()
                 album_json = json.loads(album_file)
+                songs = {name: Song(song["uri"], song["song_name"], song["album_name"], 
+                        song["artist_name"], song["audio_features"]) for name,song in album_json["songs"].items()}
+                album_json["songs"] = songs
                 album = Album(**album_json)    
+            
+            # Lyrics
+            lyric_path = filepath + f"_lyrics.json"
+            with open(lyric_path, "r") as f:
+                lyrics_file = f.read()
+                lyric_json = json.loads(lyrics_file)
+            
+            for song_name in album.songs.keys():
+                if song_name not in lyric_json:
+                    print(f"Lyrics for {song_name} missing.")
+                    continue
+                album.songs[song_name].lyrics = lyric_json[song_name]
+
+
             return album
 
-        elif filetype == "csv":
+        elif filetype == ".csv":
             with open(path, "r") as f:
                 csv_reader = csv.reader(f, delimiter=",")
                 header = next(csv_reader)
