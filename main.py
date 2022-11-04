@@ -413,9 +413,9 @@ class Album(Music):
 # ########################################################################################   
 
 class Artist(Music):
-    def __init__(self, uri, name, albums_to_uri=None, albums={}, missing_lyrics=None) -> None:
+    def __init__(self, uri, artist_name, albums_to_uri=None, albums={}, missing_lyrics=None) -> None:
         self.uri = uri
-        self.name = name
+        self.artist_name = artist_name
         self.albums_to_uri = albums_to_uri
         self.albums = {}
         self.missing_lyrics = {} # name:uri of missing songs 
@@ -431,7 +431,7 @@ class Artist(Music):
         artist = Artist(uri=uri, artist_name=artist_name, albums_to_uri=albums_to_uri)
         return artist
 
-    def get_albums(self, folder, filetype, lyrics_requested, features_wanted, limit=50):
+    def get_albums(self, folder, filetype, lyrics_requested, features_wanted, overwrite, limit=50):
         """
         retrieves albums using albums_to_uri
         In a seperate method as saving albums is included in this method too (safer in case of crash)
@@ -443,7 +443,7 @@ class Artist(Music):
 
             print(f"\n {'-'*100}\n Album: {name}\n")
             album = Album.from_spotify(uri=uri, lyrics_requested=lyrics_requested, features_wanted=features_wanted)
-            album.save(folder, filetype)
+            album.save(folder, filetype, overwrite=overwrite)
             self.albums[name] = album
             # TODO: find all missing songs across albums
                       
@@ -510,7 +510,7 @@ class Songcrawler():
         # TODO: flesh logic out here
         if isinstance(result, Artist):
             result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
-                         features_wanted=self.features_wanted, limit=self.limit)
+                         features_wanted=self.features_wanted, overwrite=self.overwrite, limit=self.limit)
         else:
             result.save(self.folder, self.filetype, overwrite=self.overwrite)
         return result
