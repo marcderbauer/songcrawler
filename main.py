@@ -183,7 +183,7 @@ class Song(Music):
 
         print(f"Retrieved Song: {song.song_name}")
         return song
-
+    
     @classmethod
     def get_lyrics(cls, genius_id=None, song_name=None, artist_name=None, clean_lyrics=True):
         """
@@ -225,63 +225,32 @@ class Song(Music):
     def _get_csv_header(self):
         return ["uri", "song_name", "album_name", "artist_name", *self.audio_features.keys(), "feature_artists", "lyrics"]
 
-    def save(self, folder, filetype):
+    # TODO: add some tests to this
+    def save(self, folder, filetype, overwrite):
         """
         Saves a song using the same structure used when saving albums
         Overwrites the song if it already exists
         Caveat: lyrics will always be appended to the end (for .json), this may mess up song order
         """
-        # TODO:
-        # could have album path included in here and just add .json or .csv or _lyrics.json respectively
-        # best would even be to have filetype include the dot (i.e.: .csv instead of csv) so you could just add strings together
+        
         path = Music.album_folder(folder, artist_name = self.artist_name, album_name = self.album_name)
         album_path = os.path.join(path, f"{self.album_name}{filetype}")
 
-        if filetype == ".json":
-            lyrics_path = album_path.split(".json")[0] + "_lyrics.json" # TODO: probably a nicer way to do this
 
-            if self.lyrics:
-                if os.path.exists(lyrics_path):
-                    try:
-                        with open(lyrics_path, "r") as f:
-                            lyrics_file = f.read()
-                            lyrics = json.loads(lyrics_file)
-                    except json.JSONDecodeError:
-                        raise("Issue when trying to read .json file.") # TODO: make more descriptive
-                else:
-                    lyrics = {}
-
-                lyrics[self.song_name] = self.lyrics
-                delattr(self, "lyrics")
-                with open(lyrics_path, "w") as f:
-                    f.write(json.dumps(lyrics, indent=4))
-
-            # Song / Album
-            if os.path.exists(album_path):
-                with open(album_path, "r") as f:
-                    album_file = f.read()
-                
-                album_json = json.loads(album_file)
-                album = Album(**album_json)    
-                album.songs[self.song_name] = self
+        # if path exists -> Doesn't mean song exists!
+        if os.path.exists(album_path):
+            album = Album.from_file(album_path)
+            if self.song_name in album.songs.keys():
+                if not overwrite:
+                    print(f"\nSong \"{self.song_name}\" exists already.\nPlease use the --overwrite flag to save it.\n")
+                    quit()
             else:
-                # TODO: would be nice to include song_to_uri here, but need to save song_uri for that first
-                # TODO: uses the wrong uri here if request is of type song. Can only get the right uri if I modify song class
-                album = Album(uri = self.uri, album_name= self.album_name, artist_name = self.artist_name, songs={self.song_name:self})
-
-            with open(album_path, "w") as f:
-                f.write(album.to_json())
-
-        elif filetype == ".csv":
-            # TODO: make open up album and then only overwrite the requested song
-            # Best way to go about this: merge it with the method for .json
-            # 1. If lyrics requested and the lyrics_path exists: read
-            with open(album_path, "w") as stream:
-                writer = csv.writer(stream)
-                writer.writerow(self)
+                album.songs[self.song_name] = self
         else:
-            raise Exception(f'Unknown file type: \"{filetype}\". Please select either \"json\" or \"csv\"')
-
+            album = Album(uri=None, album_name=self.album_name, artist_name=self.artist_name)
+        
+        # write album to file. Call album.save for this 
+        album.save(folder=folder, filetype=filetype, overwrite=overwrite)
 
 
 class Album(Music):
@@ -329,11 +298,39 @@ class Album(Music):
     
         return album
 
+    @classmethod
+    def from_file(cls, path):
+        assert os.path.exists(path)
+        filetype = path.split(".")[-1]
+        
+        if filetype == "json":
+            with open(path, "r") as f:
+                album_file = f.read()
+                album_json = json.loads(album_file)
+                album = Album(**album_json)    
+            return album
+
+        elif filetype == "csv":
+            with open(path, "r") as f:
+                csv_reader = csv.reader(f, delimiter=",")
+                header = next(csv_reader)
+                features = header[header.index('artist_name')+1: header.index('feature_artists')]
+                songs = {}
+                for row in csv_reader:
+                    songdict = dict(zip(header, row))
+                    songdict["audio_features"] = {name: value for name, value in songdict.items() if name in features}
+                    songdict = {name: value for name, value in songdict.items() if name not in features}
+                    song = Song(**songdict)
+                    songs[song.song_name] = song
+            album = Album(uri=None, album_name=songdict["album_name"], artist_name=songdict["artist_name"])
+            album.songs = songs
+            return album
+
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__, indent=4)
     
-    def save(self, folder, filetype):
-        path = Music.album_folder(folder=folder, artist_name = self.artist_name, album_name = self.album_name)
+    def save(self, folder, filetype, overwrite):
+        path = Music.album_folder(base_folder=folder, artist_name = self.artist_name, album_name = self.album_name)
         album_path = os.path.join(path, f"{self.album_name}{filetype}")
         if filetype == ".json":
             #TODO: delattr is not a nice way to deal with this. What if I still want to use this class after?
@@ -411,7 +408,7 @@ class Playlist(Music):
         playlist = Playlist(name)
         return playlist
 
-    def save(self, folder, filetype):
+    def save(self, folder, filetype, overwrite):
         #TODO Implement
         pass
 
@@ -452,7 +449,7 @@ class Songcrawler():
             result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
                          features_wanted=self.features_wanted, limit=self.limit)
         else:
-            result.save(self.folder, self.filetype)
+            result.save(self.folder, self.filetype, overwrite=self.overwrite)
         return result
         
 #----------------------------------------------------------------------------
