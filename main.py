@@ -8,13 +8,14 @@ import json
 from abc import ABC, abstractmethod
 from multiprocessing import Pool
 from itertools import repeat
+import csv
 
 
 
 #----------------------------------------------------------------------------
 #                               ARGPARSE
 #----------------------------------------------------------------------------
-
+# TODO: check best practices regarding spaces / underscores
 parser = argparse.ArgumentParser(description='Gather Spotify statistics and Genius lyrics.')
 parser.add_argument("query", metavar="Spotify URI, Genius ID or Songname", type=str, help="Either a Spotify uri, a songname or a genius id")
 parser.add_argument("--filetype", type=str, default="json", help="Filetype to save output as. Possible options: .json, .csv")
@@ -127,6 +128,17 @@ class Music(ABC):
                 # try to find song_uri and get_song
                 pass
 
+    @classmethod
+    def album_folder(cls, base_folder, artist_name, album_name):
+        """
+        Creates artist/album/ folder it it doesn't exist yet.
+        Returns the path to that folder
+        """
+        path = os.path.join(base_folder, artist_name, album_name)
+        if not os.path.exists(path):
+            os.makedirs(path)
+        return path
+
 class Song(Music):
     def __init__(self, uri, name, album, artist, audio_features, feature_artists = None, lyrics=None) -> None:
         self.uri = uri
@@ -207,6 +219,12 @@ class Song(Music):
         lyrics = re.sub(r"\n+", r"\n", lyrics) # squeezes multiple newlines into one
         lyrics = re.sub(r" +", r" ", lyrics) # squeezes multiple spaces into one
         return lyrics
+    
+    def __iter__(self):
+        return iter([self.uri, self.name, self.album, self.artist, *self.audio_features.values(), self.feature_artists, self.lyrics])
+
+    def _get_csv_header(self):
+        return ["uri", "name", "album", "artist", *self.audio_features.keys(), "feature_artists", "lyrics"]
 
     def save(self, folder, filetype):
         """
@@ -214,10 +232,9 @@ class Song(Music):
         Overwrites the song if it already exists
         Caveat: lyrics will always be appended to the end (for .json), this may mess up song order
         """
-
-        path = os.path.join(folder, self.artist, self.album)
-        if not os.path.exists(path):
-            os.makedirs(path)
+        # could have album path included in here and just add .json or .csv or _lyrics.json respectively
+        # best would even be to have filetype include the dot (i.e.: .csv instead of csv) so you could just add strings together
+        path = Music.album_folder(folder, self.artist, self.album)
         
         if filetype == "json":
             album_path = os.path.join(path, f"{self.album}.json")
@@ -253,9 +270,13 @@ class Song(Music):
                 album = Album(self.uri, self.album, self.artist, songs={self.name:self})
 
             with open(album_path, "w") as f:
-                f.write(album.toJSON())
-        elif self.filetype == "csv":
-            pass
+                f.write(album.to_json())
+        elif filetype == "csv":
+            # TODO: make open up album and then only overwrite the requested song
+            album_path = os.path.join(path, f"{self.album}.csv")
+            with open(album_path, "w") as stream:
+                writer = csv.writer(stream)
+                writer.writerow(self)
         else:
             raise Exception(f'Unknown file type: \"{self.filetype}\". Please select either \"json\" or \"csv\"')
 
@@ -312,13 +333,11 @@ class Album(Music):
         
         return album
 
-    def toJSON(self):
+    def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__, indent=4)
     
     def save(self, folder, filetype):
-        path = os.path.join(folder, self.artist, self.name)
-        if not os.path.exists(path):
-            os.makedirs(path)
+        path = Music.album_folder(folder, self.artist, self.name)
 
         if filetype == "json":
             #TODO: not a nice way to deal with this. What if I still want to use this class after?
@@ -330,12 +349,19 @@ class Album(Music):
             
             delattr(self, "songs_to_uri") 
             with open(os.path.join(path, f"{self.name}.json"), "w") as f:
-                f.write(self.toJSON())
+                f.write(self.to_json())
             
             with open(os.path.join(path, f"{self.name}_lyrics.json"), "w") as f:
-                f.write(json.dumps(lyrics, indent=4))      
+                f.write(json.dumps(lyrics, indent=4)) 
+
         elif filetype == "csv":
-            pass
+            album_path = os.path.join(path, f"{self.name}.csv")
+            header = list(self.songs.values())[0]._get_csv_header() # A bit ugly to retrieve it like this, but can't make it classmethod because features wanted is attribute
+            with open(album_path, "w") as stream:
+                writer = csv.writer(stream)
+                writer.writerow(i for i in header)
+                writer.writerows(self.songs.values())
+
         else:
             raise Exception(f'Unknown file type: \"{filetype}\". Please select either \"json\" or \"csv\"')
 
