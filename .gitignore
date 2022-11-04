@@ -10,3 +10,4 @@ setup.sh
 test.py
 .cache
 __pycache__/
+.DS_Store
