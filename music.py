@@ -8,6 +8,7 @@ from itertools import repeat
 from multiprocessing import Pool
 from abc import ABC, abstractmethod
 from spotipy.oauth2 import SpotifyClientCredentials
+from copy import deepcopy
 
 ##########################################################################################
 #                                 ____       _               
@@ -264,7 +265,7 @@ class Album(Music):
                 # TODO This could be handled better in the future, but should do the trick for now
                 print(f"Error while querying album {album_name}.\n Error message under errors.txt")
                 with open ("errors.txt", "a") as f:
-                    f.write(e)
+                    f.write(str(e))
                     
         else: # Keeping old method for debugging
             for name, song_uri in songs_to_uri.items():
@@ -325,23 +326,28 @@ class Album(Music):
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__, indent=4)
     
+
+
     def save(self, folder, filetype, overwrite):
         path = Music.album_folder(base_folder=folder, artist_name = self.artist_name, album_name = self.album_name)
         album_path = os.path.join(path, f"{self.album_name}{filetype}")
         if filetype == ".json":
-            #TODO: delattr is not a nice way to deal with this. What if I still want to use this class after?
-            #      maybe create a copy of songs / the album that gets saved and then deleted after?
+            # Using a copy to remove attributes for saving to file while keeping original intact
+            copy = deepcopy(self)
             lyrics = {}
-            for name, song in self.songs.items():
+
+            for name, song in copy.songs.items():
                 lyrics[name] = song.lyrics
                 delattr(song, "lyrics")
-            
-            delattr(self, "songs_to_uri") 
+            delattr(copy, "songs_to_uri")
+
             with open(album_path, "w") as f:
-                f.write(self.to_json())
+                f.write(copy.to_json())
             
             with open(os.path.join(path, f"{self.album_name}_lyrics.json"), "w") as f:
                 f.write(json.dumps(lyrics, indent=4)) 
+            
+            del copy #likely don't need this, but doesn't hurt
 
         elif filetype == ".csv":
             header = list(self.songs.values())[0]._get_csv_header() # A bit ugly to retrieve it like this, but can't make it classmethod because features wanted is attribute
