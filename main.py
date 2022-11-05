@@ -12,6 +12,7 @@ parser.add_argument("--region", type=str, default="US", help="Region to query so
 parser.add_argument("--folder", type=str, default="data", help="Output folder")
 parser.add_argument("--overwrite", default=False, action='store_true', help="Overwrites existing songs/albums/artists/playlists")
 parser.add_argument("--album_type",type=str, default="album", help="Type albums to retrieve when querying an album. Possible Values: album, ep")
+parser.add_argument("--save_every", type=int, default=50, help="Incremental saving when querying playlists.")
 args = parser.parse_args()
 
 #TODO: add all possible album types to --album_type help
@@ -25,7 +26,8 @@ def main():
                     region=args.region,
                     folder=args.folder,
                     overwrite=args.overwrite,
-                    album_type=args.album_type)
+                    album_type=args.album_type,
+                    save_every=args.save_every)
     sc.request(args.query)
 
 if __name__=="__main__":

@@ -71,7 +71,8 @@ class Music(ABC):
                                                 region=request.region, limit=request.limit)
                     return artist
                 case "playlist":
-                    playlist = Playlist.from_spotify(uri=request.query)
+                    playlist = Playlist.from_spotify(uri=request.query, save_every=request.save_every,
+                                                    lyrics_requested=request.lyrics_requested, features_wanted=request.features_wanted)
                     return playlist
                 case _:
                     raise Exception(f'Unknown request type: \"{request.type}\"')
@@ -414,18 +415,88 @@ class Artist(Music):
 # ########################################################################################               
 
 class Playlist(Music):
-    def __init__(self, name) -> None:
-        self.name = name
-    
+    def __init__(self, playlist_name, save_every, offset, songs_to_uri=None, songs={}, missing_lyrics={}) -> None:
+        self.playlist_name = playlist_name
+        self.save_every = save_every
+        self.offset = offset
+        self.songs_to_uri = songs_to_uri
+        self.songs = songs
+        self.missing_lyrics = missing_lyrics # name:uri of missing songs
+
     @classmethod
-    def from_spotify(cls, uri):
-        spotify_playlist = spotify.playlist(uri)
-        # TODO: implement the rest
-        name = "put_spotify_playlist_name_here"
-        playlist = Playlist(name)
+    def from_spotify(cls, uri, save_every, lyrics_requested, features_wanted):
+        spotify_playlist = spotify.playlist(playlist_id=uri)
+        spotify_playlist_items = spotify.playlist_items(uri, limit=save_every)
+        playlist_name = spotify_playlist['name']
+        songs_to_uri =  {entry["track"]["name"]:entry["track"]["uri"] for entry in spotify_playlist_items['items']}
+
+        playlist = Playlist(playlist_name=playlist_name, save_every=save_every, offset=save_every, 
+                            songs_to_uri=songs_to_uri, songs={}, missing_lyrics={})
+        
         return playlist
 
-    def save(self, folder, filetype, overwrite):
+    def save(self, folder, filetype, overwrite, lyrics_requested, features_wanted):
         #TODO Implement
+        # Would be nice to have some mechanism to deal with long playlists
+        # maybe save every 50 songs?
+
+        # seems like spotify has a limit of requesting 100 songs?
+
+        # TODO: Would be nice if this included all the iterating through the playlist
+        # No need to handle this on the outside
+        #
+        # self.init_files
+        #
+        # while True
+        #   query songs from song_to_uri using pool
+        #   Maybe make Music.pool(song_to_uri, lyrics_requested, features_wanted) -> {song.song_name: song}
+        #   
+        #   save songs to file in append mode
+        #   rest here as Playlist.next?
+        #   increment self.offset
+        #   get next batch from spotify playlist
+        #       makes sense to have a local song_to_uri and a general self.song_to_uri for all songs?
+        #   
+        #   if len(songs_to_uri) == self.save_every:
+        #   some other error criterium maybe? if no songs in next batch?
+
+        # TODO: almost identical as in Album(), maybe could make this a method in Music class?
+        if PARALLELIZE:
+            try:
+                with Pool() as pool: #uri, lyrics_requested, features_wanted
+                    results = pool.map(Song.multi_run_wrapper, list(zip(self.songs_to_uri.values(), repeat([lyrics_requested, features_wanted]))))
+                    results = {song.song_name:song for song in results}
+                    for songname in self.songs_to_uri.keys():
+                        self.songs[songname] = results[songname]
+
+            except Exception as e:
+                # TODO This could be handled better in the future, but should do the trick for now
+                print(f"Error while querying album {playlist_name}.\n Error message under errors.txt")
+                with open ("errors.txt", "a") as f:
+                    f.write(str(e))
+                    
+        else: # Keeping old method for debugging
+            for playlist_name, song_uri in songs_to_uri.items():
+                song = Song.from_spotify(uri=song_uri, lyrics_requested=lyrics_requested, 
+                                        features_wanted=features_wanted)
+                playlist.songs[playlist_name] = song
+                if not song.lyrics:
+                    playlist.missing_lyrics[playlist_name]= song_uri
+        pass
+    
+    def init_files(self, path, overwrite):
+        """
+        initialises the file(s) where to save the playlist
+        # use Music.album_folder()
+        Meaning: 
+        if it exists: 
+            check if overwrite
+                if yes: reset file
+                if not: throw error
+        """
         pass
 
+    def next(self):
+        # increments self.offset by self.limit
+        # gathers the next set of tracks
+        pass

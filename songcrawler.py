@@ -11,7 +11,7 @@ from music import Music, Artist
 # ########################################################################################  
 
 class Songcrawler():
-    def __init__(self, lyrics_requested=True, filetype="json", region="US", folder="data", overwrite=False, limit=50, album_type="album") -> None:
+    def __init__(self, lyrics_requested=True, filetype="json", region="US", folder="data", overwrite=False, limit=50, album_type="album", save_every=50) -> None:
         self.lyrics_requested = lyrics_requested
         self.filetype = filetype
         self.features_wanted = ['danceability', 'energy', 'key', 'loudness',
@@ -24,6 +24,7 @@ class Songcrawler():
         self.overwrite = overwrite
         self.limit = limit
         self.album_type = album_type
+        self.save_every = 50
 
     def request(self, query, lyrics_requested=None):
         """
