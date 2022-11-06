@@ -9,7 +9,8 @@ from multiprocessing import Pool
 from abc import ABC, abstractmethod
 from spotipy.oauth2 import SpotifyClientCredentials
 from copy import deepcopy
-from utils import file_empty, overwrite_dir
+from utils import delete_dir, file_empty, overwrite_dir
+import glob
 
 ##########################################################################################
 #                                 ____       _               
@@ -226,7 +227,7 @@ class MusicCollection(Music):
     
 
     def _write(self, path, filetype, index=None):
-        album_path = os.path.join(path, f"{self.collection_name}{str(index)}{filetype}")
+        album_path = os.path.join(path, f"{self.collection_name}{str(index) if (index or index==0) else ''}{filetype}")
         if filetype == ".json":
             # Using a copy to remove attributes for saving to file while keeping original intact
             copy = deepcopy(self)
@@ -240,7 +241,7 @@ class MusicCollection(Music):
             with open(album_path, mode="w") as f:
                 f.write(copy.to_json())
             
-            with open(os.path.join(path, f"{self.collection_name}_lyrics{str(index)}.json"), "w") as f:
+            with open(os.path.join(path, f"{self.collection_name}{str(index) if (index or index==0) else ''}_lyrics.json"), "w") as f:
                 f.write(json.dumps(lyrics, indent=4)) 
             
             del copy #likely don't need this, but doesn't hurt
@@ -527,7 +528,7 @@ class Artist(Music):
 # ########################################################################################               
 
 class Playlist(MusicCollection):
-    def __init__(self, uri, playlist_name, save_every, offset, songs_to_uri=None, songs={}, missing_lyrics={}, songs_to_uri_all={}) -> None:
+    def __init__(self, uri, playlist_name, save_every, offset, songs_to_uri=None, songs={}, missing_lyrics={}, songs_to_uri_all={}, collection_name=None) -> None:
         self.uri = uri
         self.playlist_name = playlist_name
         self.save_every = save_every
@@ -550,6 +551,25 @@ class Playlist(MusicCollection):
                             songs_to_uri=songs_to_uri, songs={}, missing_lyrics={}, songs_to_uri_all={})
         
         return playlist
+    
+    def combine_temp(self, path):
+        """
+        Combines the files saved in path/.tmp/ into one big playlist and writes it to a file
+        """
+        files = glob.glob(os.path.join(path, f".tmp/*{self.playlist_name}[!_lyrics]*")) #!_lyrics doesn't seem to work
+        files = [file for file in files if not re.search("_lyrics.*", file)]
+        files = sorted(files)
+
+        songs = {}
+        for file in files:
+            mc = MusicCollection.from_file(file, Playlist)
+            songs.update(mc.songs)
+        playlist_final = Playlist(uri=self.uri, playlist_name=self.playlist_name, save_every=self.save_every, offset=self.offset, songs_to_uri=self.songs_to_uri_all,
+                                    songs = songs, missing_lyrics=self.missing_lyrics, songs_to_uri_all=self.songs_to_uri_all, collection_name=self.playlist_name)
+        return playlist_final
+        
+
+
 
     def save(self, folder, filetype, overwrite, lyrics_requested, features_wanted):
         """
@@ -569,14 +589,18 @@ class Playlist(MusicCollection):
             songs = self._pool(features_wanted=features_wanted, lyrics_requested=lyrics_requested)
             self.songs.update(songs) 
             self.songs_to_uri_all.update(self.songs_to_uri)
-
+            
+            # TODO: add saving to .csv here somewhere? Don't really need helperfiles, can just append
             self._write(path=temp_path, filetype=filetype, index=batch)
             self._next()
             batch += 1
             if not self.songs_to_uri:
+                delte_tmp = True
                 break
 
-        self.combine_temp()
+        combined = self.combine_temp(path)
+        combined._write(path = path, filetype=filetype)
+        delete_dir(temp_path)
     
 
     def _next(self):
