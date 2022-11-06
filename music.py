@@ -247,10 +247,12 @@ class MusicCollection(Music):
             del copy #likely don't need this, but doesn't hurt
 
         elif filetype == ".csv":
+            mode = "a" if isinstance(self, Playlist) else "w"
             header = list(self.songs.values())[0]._get_csv_header() # A bit ugly to retrieve it like this, but can't make it classmethod because features wanted is attribute
-            with open(album_path, mode="w") as stream:
+            with open(album_path, mode=mode) as stream:
                 writer = csv.writer(stream)
-                writer.writerow(i for i in header)
+                if not index: #Only writes the first time
+                    writer.writerow(i for i in header)
                 writer.writerows(self.songs.values())
 
         else:
@@ -535,8 +537,9 @@ class Playlist(MusicCollection):
         path = Music.album_folder(base_folder=folder, artist_name="_Playlists", album_name=self.playlist_name)
         base_path = os.path.join(path, self.playlist_name) # TODO: could get merged into Music.album_folder if the funciton isn't used anywhere else (should rename tho)
         save = self._init_files(album_path=base_path, filetype=filetype, overwrite=overwrite)
-        temp_path = os.path.join(path, ".tmp")
-        overwrite_dir(temp_path)
+        if filetype == ".json":
+            temp_path = os.path.join(path, ".tmp")
+            overwrite_dir(temp_path)
         
         batch = 0
         while save:
@@ -545,17 +548,21 @@ class Playlist(MusicCollection):
             self.songs_to_uri_all.update(self.songs_to_uri)
             
             # TODO: add saving to .csv here somewhere? Don't really need helperfiles, can just append
-            self._write(path=temp_path, filetype=filetype, index=batch)
+            if filetype == ".json":
+                self._write(path=temp_path, filetype=filetype, index=batch)
+            else:
+                self._write(path=path, filetype=filetype, index=None)
             self._next()
             batch += 1
             if not self.songs_to_uri:
                 delete_tmp = True
                 break
-
-        combined = self.combine_temp(path)
-        combined._write(path = path, filetype=filetype)
-        if delete_tmp: # TODO Probably unnecessary
-            delete_dir(temp_path)
+        
+        if filetype == ".json":
+            combined = self.combine_temp(path)
+            combined._write(path = path, filetype=filetype)
+            if delete_tmp: # TODO Probably unnecessary
+                delete_dir(temp_path)
     
 
     def _next(self):
