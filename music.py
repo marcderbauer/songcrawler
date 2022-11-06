@@ -418,52 +418,6 @@ class Album(MusicCollection):
     
         return album
 
-    @classmethod
-    def from_file(cls, path):
-        assert os.path.exists(path)
-        filepath, filetype = os.path.splitext(path)
-        
-        if filetype == ".json":
-            # Album
-            with open(path, "r") as f:
-                album_file = f.read()
-                album_json = json.loads(album_file)
-                songs = {name: Song(song["uri"], song["song_name"], song["album_name"], 
-                        song["artist_name"], song["audio_features"]) for name,song in album_json["songs"].items()}
-                album_json["songs"] = songs
-                album = Album(**album_json)    
-            
-            # Lyrics
-            lyric_path = filepath + f"_lyrics.json"
-            with open(lyric_path, "r") as f:
-                lyrics_file = f.read()
-                lyric_json = json.loads(lyrics_file)
-            
-            for song_name in album.songs.keys():
-                if song_name not in lyric_json:
-                    print(f"Lyrics for {song_name} missing.")
-                    continue
-                album.songs[song_name].lyrics = lyric_json[song_name]
-
-
-            return album
-
-        elif filetype == ".csv":
-            with open(path, "r") as f:
-                csv_reader = csv.reader(f, delimiter=",")
-                header = next(csv_reader)
-                features = header[header.index('artist_name')+1: header.index('feature_artists')]
-                songs = {}
-                for row in csv_reader:
-                    songdict = dict(zip(header, row))
-                    songdict["audio_features"] = {name: value for name, value in songdict.items() if name in features}
-                    songdict = {name: value for name, value in songdict.items() if name not in features}
-                    song = Song(**songdict)
-                    songs[song.song_name] = song
-            album = Album(uri=None, album_name=songdict["album_name"], artist_name=songdict["artist_name"])
-            album.songs = songs
-            return album
-
 
     def save(self, folder, filetype, overwrite, lyrics_requested=None, features_wanted=None):
         path = Music.album_folder(base_folder=folder, artist_name = self.artist_name, album_name = self.album_name)
@@ -595,12 +549,13 @@ class Playlist(MusicCollection):
             self._next()
             batch += 1
             if not self.songs_to_uri:
-                delte_tmp = True
+                delete_tmp = True
                 break
 
         combined = self.combine_temp(path)
         combined._write(path = path, filetype=filetype)
-        delete_dir(temp_path)
+        if delete_tmp: # TODO Probably unnecessary
+            delete_dir(temp_path)
     
 
     def _next(self):
