@@ -40,7 +40,8 @@ class Songcrawler():
             result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
                          features_wanted=self.features_wanted, overwrite=self.overwrite, limit=self.limit)
         else:
-            result.save(self.folder, self.filetype, overwrite=self.overwrite)
+            result.save(self.folder, self.filetype, overwrite=self.overwrite, lyrics_requested=lyrics_requested, 
+                        features_wanted=self.features_wanted)
         return result
 
 
