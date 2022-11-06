@@ -9,7 +9,7 @@ from multiprocessing import Pool
 from abc import ABC, abstractmethod
 from spotipy.oauth2 import SpotifyClientCredentials
 from copy import deepcopy
-from utils import file_empty
+from utils import file_empty, overwrite_dir
 
 ##########################################################################################
 #                                 ____       _               
@@ -122,6 +122,8 @@ class MusicCollection(Music):
     
     @classmethod
     def from_file(cls, path, Class):
+        # TODO: Maybe undo this? Passing the class as an argument probably means its not a good design decision...
+        # Maybe I can make it a bit more generic?
         assert os.path.exists(path)
         assert issubclass(Class, cls)
         filepath, filetype = os.path.splitext(path)
@@ -183,7 +185,7 @@ class MusicCollection(Music):
             except Exception as e:
                 # TODO This could be handled better in the future, but should do the trick for now
                 self.missing_lyrics.update(self.songs_to_uri)
-                print(f"Error while querying album {playlist_name}.\n Error message under errors.txt")
+                print(f"Error while querying album {self.collection_name}.\n Error message under errors.txt")
                 with open ("errors.txt", "a") as f:
                     f.write(str(e))
 
@@ -223,9 +225,8 @@ class MusicCollection(Music):
         return True
     
 
-    def _write(self, path, mode, filetype):
-        assert mode in ["w", "a"], "Filemode needs to be either 'a' for append or 'w' for write"
-        album_path = os.path.join(path, f"{self.collection_name}{filetype}")
+    def _write(self, path, filetype, index=None):
+        album_path = os.path.join(path, f"{self.collection_name}{str(index)}{filetype}")
         if filetype == ".json":
             # Using a copy to remove attributes for saving to file while keeping original intact
             copy = deepcopy(self)
@@ -236,17 +237,17 @@ class MusicCollection(Music):
                 delattr(song, "lyrics")
             delattr(copy, "songs_to_uri")
 
-            with open(album_path, mode=mode) as f:
+            with open(album_path, mode="w") as f:
                 f.write(copy.to_json())
             
-            with open(os.path.join(path, f"{self.collection_name}_lyrics.json"), "w") as f:
+            with open(os.path.join(path, f"{self.collection_name}_lyrics{str(index)}.json"), "w") as f:
                 f.write(json.dumps(lyrics, indent=4)) 
             
             del copy #likely don't need this, but doesn't hurt
 
         elif filetype == ".csv":
             header = list(self.songs.values())[0]._get_csv_header() # A bit ugly to retrieve it like this, but can't make it classmethod because features wanted is attribute
-            with open(album_path, mode=mode) as stream:
+            with open(album_path, mode="w") as stream:
                 writer = csv.writer(stream)
                 writer.writerow(i for i in header)
                 writer.writerows(self.songs.values())
@@ -468,7 +469,7 @@ class Album(MusicCollection):
         base_path = os.path.join(path, self.album_name) # TODO: could get merged into Music.album_folder if the funciton isn't used anywhere else (should rename tho)
         write_allowed = self._init_files(album_path=base_path, filetype=filetype, overwrite=overwrite)
         if write_allowed:
-            self._write(path=path, mode="w", filetype=filetype)
+            self._write(path=path, filetype=filetype)
         
 
 
@@ -526,7 +527,8 @@ class Artist(Music):
 # ########################################################################################               
 
 class Playlist(MusicCollection):
-    def __init__(self, playlist_name, save_every, offset, songs_to_uri=None, songs={}, missing_lyrics={}, songs_to_uri_all={}) -> None:
+    def __init__(self, uri, playlist_name, save_every, offset, songs_to_uri=None, songs={}, missing_lyrics={}, songs_to_uri_all={}) -> None:
+        self.uri = uri
         self.playlist_name = playlist_name
         self.save_every = save_every
         self.offset = offset
@@ -544,48 +546,42 @@ class Playlist(MusicCollection):
         songs_to_uri =  {entry["track"]["name"]:entry["track"]["uri"] for entry in spotify_playlist_items['items']}
         
 
-        playlist = Playlist(playlist_name=playlist_name, save_every=save_every, offset=save_every, 
+        playlist = Playlist(uri=uri, playlist_name=playlist_name, save_every=save_every, offset=0, 
                             songs_to_uri=songs_to_uri, songs={}, missing_lyrics={}, songs_to_uri_all={})
         
         return playlist
 
     def save(self, folder, filetype, overwrite, lyrics_requested, features_wanted):
-
+        """
+        Queries and saves songs of a playlist.
+        Songs are queried in batches of size self.save_every and saved in path/.tmp.
+        Finally they are all merged to a regular .json or .csv file
+        #TODO: Delete .tmp ONLY on success (if break out of loop)
+        """
         path = Music.album_folder(base_folder=folder, artist_name="_Playlists", album_name=self.playlist_name)
         base_path = os.path.join(path, self.playlist_name) # TODO: could get merged into Music.album_folder if the funciton isn't used anywhere else (should rename tho)
         save = self._init_files(album_path=base_path, filetype=filetype, overwrite=overwrite)
-        #TODO Implement
-        # Would be nice to have some mechanism to deal with long playlists
-        # maybe save every 50 songs?
-
-        # seems like spotify has a limit of requesting 100 songs?
-
-        # TODO: Would be nice if this included all the iterating through the playlist
-        # No need to handle this on the outside 
-        # while True
+        temp_path = os.path.join(path, ".tmp")
+        overwrite_dir(temp_path)
+        
+        batch = 0
         while save:
-        #   query songs from song_to_uri using pool
-        #   Maybe make Music.pool(song_to_uri, lyrics_requested, features_wanted) -> {song.song_name: song}
             songs = self._pool(features_wanted=features_wanted, lyrics_requested=lyrics_requested)
             self.songs.update(songs) 
             self.songs_to_uri_all.update(self.songs_to_uri)
-        #   save songs to file in append mode
-            self._write(path=path, filetype=filetype, mode="a")
+
+            self._write(path=temp_path, filetype=filetype, index=batch)
             self._next()
-        #   rest here as Playlist.next?
-        #   increment self.offset
-        #   get next batch from spotify playlist
-        #       makes sense to have a local song_to_uri and a general self.song_to_uri for all songs?
-        #   
-        #   if len(songs_to_uri) == self.save_every:
-        #   some other error criterium maybe? if no songs in next batch?
+            batch += 1
             if not self.songs_to_uri:
                 break
-        # TODO: almost identical as in Album(), maybe could make this a method in Music class?
+
+        self.combine_temp()
     
 
     def _next(self):
         # increments self.offset by self.limit
         self.offset += self.save_every
         # gathers the next set of tracks
-        self.songs_to_uri = spotify.playlist_items(self.uri, limit=self.save_every, offset=self.offset)
+        spotify_playlist_items = spotify.playlist_items(self.uri, limit=self.save_every, offset=self.offset)
+        self.songs_to_uri =  {entry["track"]["name"]:entry["track"]["uri"] for entry in spotify_playlist_items['items']}
