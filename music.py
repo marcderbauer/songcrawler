@@ -251,7 +251,7 @@ class MusicCollection(Music):
             header = list(self.songs.values())[0]._get_csv_header() # A bit ugly to retrieve it like this, but can't make it classmethod because features wanted is attribute
             with open(album_path, mode=mode) as stream:
                 writer = csv.writer(stream)
-                if not index: #Only writes the first time
+                if file_empty(album_path): #Only writes the first time
                     writer.writerow(i for i in header)
                 writer.writerows(self.songs.values())
 
@@ -544,7 +544,7 @@ class Playlist(MusicCollection):
         batch = 0
         while save:
             songs = self._pool(features_wanted=features_wanted, lyrics_requested=lyrics_requested)
-            self.songs.update(songs) 
+            self.songs = songs 
             self.songs_to_uri_all.update(self.songs_to_uri)
             
             # TODO: add saving to .csv here somewhere? Don't really need helperfiles, can just append
