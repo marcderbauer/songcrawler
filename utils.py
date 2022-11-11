@@ -13,10 +13,10 @@ def delete_dir(path, verbose=False):
 
 def overwrite_dir(path, verbose=False):
     """
-    Overwrites a directory no matter the contents. Only used for temp directories
+    Overwrites a directory no matter the contents. Primarily used for temp directories
     """
     delete_dir(path)
-    os.mkdir(path)
+    os.makedirs(path)
     if verbose:
         print(f"Force created directory {path}")
 

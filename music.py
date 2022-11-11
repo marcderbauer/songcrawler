@@ -445,13 +445,11 @@ class Album(MusicCollection):
 
 
     def save(self, folder, filetype, overwrite, lyrics_requested=None, features_wanted=None):
-        self.get_path(folder)
-        path = Music.album_folder(base_folder=folder, artist_name = self.artist_name, album_name = self.album_name)
-        base_path = os.path.join(path, self.album_name) # TODO: could get merged into Music.album_folder if the funciton isn't used anywhere else (should rename tho)
-        write_allowed = self._init_files(album_path=base_path, filetype=filetype, overwrite=overwrite)
+        path = self.get_path(folder)
+        write_allowed = self._init_files(path=path, filetype=filetype, overwrite=overwrite)
         if write_allowed:
             self._write(path=path, filetype=filetype)
-        
+        delete_dir(path.temp) # TODO shouldn't be generated for Albums, need to figure out how to avoid this
 
 
 # ########################################################################################   
@@ -559,26 +557,16 @@ class Playlist(MusicCollection):
         Queries and saves songs of a playlist.
         Songs are queried in batches of size self.save_every and saved in path/.tmp.
         Finally they are all merged to a regular .json or .csv file
-        #TODO: Delete .tmp ONLY on success (if break out of loop)
         """
         path = self.get_path(folder) #TODO: would make more sense as get_path as path is really only needed in save() where folder is given
-
-        #path = Path(folder=folder, artist="_Playlists", album=self.playlist_name)
-        #path.get_temp_paths(".csv")
         save = self._init_files(path = path, filetype=filetype, overwrite=overwrite)
-
-        #base_path = os.path.join(path, self.playlist_name) # TODO: could get merged into Music.album_folder if the funciton isn't used anywhere else (should rename tho)
-        #save = self._init_files(album_path=self.path.album_base, filetype=filetype, overwrite=overwrite)
         
         while save:
             songs = self._pool(features_wanted=features_wanted, lyrics_requested=lyrics_requested)
             self.songs = songs 
             self.songs_to_uri_all.update(self.songs_to_uri)
             
-            # TODO: add saving to .csv here somewhere? Don't really need helperfiles, can just append
             if filetype == ".json":
-                # TODO: pass entire path object?
-                # overwrite_dir(path.temp)
                 self._write(path=path, filetype=filetype, temp=True)
             else:
                 self._write(path=path, filetype=filetype)
@@ -591,13 +579,11 @@ class Playlist(MusicCollection):
         if filetype == ".json":
             combined = self._combine_temp(path.album)
             combined._write(path = path, filetype=filetype)
-            if delete_tmp: # TODO Probably unnecessary
+            if delete_tmp:
                 delete_dir(path.temp)
     
 
     def _next(self):
-        # increments self.offset by self.limit
         self.offset += self.save_every
-        # gathers the next set of tracks
-        spotify_playlist_items = spotify.playlist_items(self.uri, limit=self.save_every, offset=self.offset)
-        self.songs_to_uri =  {entry["track"]["name"]:entry["track"]["uri"] for entry in spotify_playlist_items['items']}
+        spotify_playlist_items = spotify.playlist_items(self.uri, limit=self.save_every, offset=self.offset) # gather the next set of tracks
+        self.songs_to_uri = {entry["track"]["name"]:entry["track"]["uri"] for entry in spotify_playlist_items['items']}
