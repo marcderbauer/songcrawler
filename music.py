@@ -239,6 +239,14 @@ class MusicCollection(Music):
             open(filepath, "w").close() # overwrites all contents
         return True
     
+    @abstractmethod
+    def _write_csv(self, path, mode):
+        header = list(self.songs.values())[0]._get_csv_header() # A bit ugly to retrieve it like this, but can't make it classmethod because features wanted is attribute
+        with open(path.csv, mode=mode) as stream:
+            writer = csv.writer(stream)
+            if file_empty(path.csv): #Only writes the first time
+                writer.writerow(i for i in header)
+            writer.writerows(self.songs.values())
 
     def _write(self, path: Path, filetype, temp=False):
         if filetype == ".json":
@@ -266,13 +274,7 @@ class MusicCollection(Music):
             del copy #likely don't need this, but doesn't hurt
 
         elif filetype == ".csv":
-            mode = "a" if isinstance(self, Playlist) else "w"
-            header = list(self.songs.values())[0]._get_csv_header() # A bit ugly to retrieve it like this, but can't make it classmethod because features wanted is attribute
-            with open(path.csv, mode=mode) as stream:
-                writer = csv.writer(stream)
-                if file_empty(path.csv): #Only writes the first time
-                    writer.writerow(i for i in header)
-                writer.writerows(self.songs.values())
+            self._write_csv(path=path)
 
         else:
             raise Exception(f'Unknown file type: \"{filetype}\". Please select either \".json\" or \".csv\"')
@@ -443,6 +445,8 @@ class Album(MusicCollection):
     
         return album
 
+    def _write_csv(self, path):
+        return super()._write_csv(path=path, mode="w")
 
     def save(self, folder, filetype, overwrite, lyrics_requested=None, features_wanted=None):
         path = self.get_path(folder)
@@ -549,7 +553,8 @@ class Playlist(MusicCollection):
                                     songs = songs, missing_lyrics=self.missing_lyrics, songs_to_uri_all=self.songs_to_uri_all, collection_name=self.playlist_name)
         return playlist_final
         
-
+    def _write_csv(self, path):
+        return super()._write_csv(path, mode="a")
 
 
     def save(self, folder, filetype, overwrite, lyrics_requested, features_wanted):
