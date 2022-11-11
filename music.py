@@ -175,6 +175,9 @@ class MusicCollection(Music):
             collection = Class(uri=None, album_name=songdict["album_name"], artist_name=songdict["artist_name"])
             collection.songs = songs
             return collection
+        
+        else:
+            raise Exception(f'Unknown file type: \"{filetype}\". Please select either \".json\" or \".csv\"')
     
     def _pool(self, lyrics_requested, features_wanted):
         """
@@ -229,7 +232,7 @@ class MusicCollection(Music):
             raise Exception(f'Unknown file type: \"{filetype}\". Please select either \".json\" or \".csv\"')
 
         if not os.path.exists(path.album):
-            os.mkdir(path.album) # TODO does this work if parent dir doesn't exist yet?
+            os.makdirs(path.album)
 
         for filepath in filepaths:
             if not file_empty(path=filepath):
@@ -387,14 +390,11 @@ class Song(Music):
         Overwrites the song if it already exists
         Caveat: lyrics will always be appended to the end, this may mess up song order
         """
+        path = Path(folder=folder, artist=self.artist_name, album=self.album_name)
+        filepath = path.csv if filetype == ".csv" else path.json
         
-        path = Music.album_folder(folder, artist_name = self.artist_name, album_name = self.album_name)
-        album_path = os.path.join(path, f"{self.album_name}{filetype}")
-
-
-        # if path exists -> Doesn't mean song exists!
-        if os.path.exists(album_path):
-            album = MusicCollection.from_file(album_path, Class=Album)
+        if os.path.exists(filepath):
+            album = MusicCollection.from_file(filepath, Class=Album)
             if self.song_name in album.songs.keys() and not overwrite:
                 print(f"\nSong \"{self.song_name}\" exists already.\nPlease use the --overwrite flag to save it.\n")
                 quit()
