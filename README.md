@@ -9,7 +9,7 @@ Older versions may work, but are currently not supported.
 
 You will also need to setup access to the Spotify and Genius APIs. More on that below.
 
-## About
+## :open_mouth: About
 
 This program is a tool for data scientists and NLP enthusiasts who would like to gather data on music. It gathers two types of data: Spotify audio features and lyrics.
 
@@ -23,24 +23,22 @@ The lyrics are gathered through the Genius API.
 
     pip install -r requirements.txt
 
-#### 2. Setup YouTube API
+#### 2. Setup Spotify API
+  This repository makes use of [Spotipy](https://github.com/spotipy-dev/spotipy) to access the Spotify API. If you're interested in the statistics gathered from Spotify, you might want to checkout the [Spotipy Documentation](https://spotipy.readthedocs.io/en/2.21.0/).
+  To query data from the API, you first need to create an app as [Spotify developer](https://developers.spotify.com/). You need to do this in order to get a `client_id` and `client_secret`.  
+  
+  You need to export the credentials as environment variables `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` respectively.
+    
+  Here is a little tutorial on how to get the credentials:
+  https://cran.r-project.org/web/packages/spotidy/vignettes/Connecting-with-the-Spotify-API.html
 
-__TODO__ Change this to match this repo (One for Spotify and one for genius)
 
-  > :heavy_exclamation_mark: This step is only necessary if you want to source the data yourself:heavy_exclamation_mark:
-  The dataset used to train the model is included under [/data/](/data/). It was collected 23.09.2022.  
-
-  The data for this project is gathered through the [YouTube Data API v3](https://developers.google.com/youtube/v3).
-  Setting up this API can roughly be divided into the following steps:  
-  <ol>  
-    <li>Create a Google Developer Account
-    <li>Create a new project
-    <li>Enable the YouTube Data API v3
-    <li>Create credentials
-    <li>Make the credentials accessible to your environment
-  </ol>  
-
-  For in-depth guidance, please refer to this excellent [HubSpot Article](https://blog.hubspot.com/website/how-to-get-youtube-api-key).
+#### 3. Setup Genius API
+  Lyrics are gathered using [LyricsGenius](https://github.com/johnwmillr/LyricsGenius) to access the [Genius.com](https://genius.com/) API.   
+    
+  The first step to access the API is to create a Genius account. Once you have the account, you can use it to [generate a client access token](http://genius.com/api-clients). You need to export this as the environment variable `GENIUS_ACCESS_TOKEN`.
+    
+After setting up both the Spotify and Genius API you are ready to go.
 <br>
   
 ## How It Works
