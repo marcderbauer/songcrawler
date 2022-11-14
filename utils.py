@@ -44,6 +44,19 @@ class Path():
     def from_string(cls, string):
         """
         Instanciates a path object from a string path
-        TODO: is this necessary?
+        Path needs to be formatted like this:
+        base_folder/artist_name/album_name/...
         """
-        pass
+        splitpath = string.split("/")
+        assert len(splitpath) >= 3 and not '' in splitpath, "Path not long enough. The expected format is base_folder/artist_name/album_name/..."
+        
+        base_folder = splitpath[0]
+        artist_name = splitpath[1]
+        album_name  = splitpath[2]
+
+        path = Path(base_folder, artist_name, album_name)
+        return path
+
+if __name__ == "__main__":
+    path = Path.from_string('data/The 1975/')
+    print(path)
