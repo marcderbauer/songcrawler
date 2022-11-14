@@ -17,7 +17,7 @@ class Songcrawler():
         self.features_wanted = ['danceability', 'energy', 'key', 'loudness',
                                 'mode', 'speechiness', 'acousticness', 'instrumentalness',
                                 'liveness', 'valence', 'tempo', 'time_signature', 'duration_ms']
-        self.no_lyrics = {} # trackname: spotify_uri for songs without lyrics # Todo: remember to reset after each request
+        self.no_lyrics = {} # trackname: spotify_uri for songs without lyrics # TODO: remember to reset after each request
         self.region = region #setting country to US arbitrarily to avoid duplicates across regions
         self.album_regex = "Deluxe|Edition"
         self.folder = folder

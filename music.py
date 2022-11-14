@@ -59,7 +59,7 @@ class Music(ABC):
     @classmethod
     def request(cls, request):
         if request.type == "spotify": # if request.spotify_type ? 
-            match request.get_spotify_type(): # TODO This should be an attribute of request really
+            match request.get_spotify_type():
                 case "track":
                     song = Song.from_spotify(request.query, lyrics_requested=request.lyrics_requested, 
                                 features_wanted=request.features_wanted)#, genius_id=genius_id) TODO: figure out genius ID here
@@ -548,7 +548,7 @@ class Playlist(MusicCollection):
         Songs are queried in batches of size self.save_every and saved in path/.tmp.
         Finally they are all merged to a regular .json or .csv file
         """
-        path = self.get_path(folder) #TODO: would make more sense as get_path as path is really only needed in save() where folder is given
+        path = self.get_path(folder)
         save = self._init_files(path = path, filetype=filetype, overwrite=overwrite)
         
         while save:
