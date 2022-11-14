@@ -128,16 +128,16 @@ class MusicCollection(Music):
         super().__init__()
     
     @classmethod
-    def from_file(cls, path, Class):
-        # TODO: Maybe undo this? Passing the class as an argument probably means its not a good design decision...
-        # Maybe I can make it a bit more generic?
-        assert os.path.exists(path)
+    def from_file(cls, path_string, Class):
+        assert os.path.exists(path_string)
         assert issubclass(Class, cls)
-        filepath, filetype = os.path.splitext(path)
+
+        path = Path.from_string(path_string)
+        filetype = os.path.splitext(path_string)[1]
         
         if filetype == ".json":
             # Collection
-            with open(path, "r") as f:
+            with open(path.json, "r") as f:
                 collection_file = f.read()
                 collection_json = json.loads(collection_file)
                 songs = {name: Song(song["uri"], song["song_name"], song["album_name"], 
@@ -146,8 +146,7 @@ class MusicCollection(Music):
                 collection = Class(**collection_json)    
             
             # Lyrics
-            lyric_path = filepath + f"_lyrics.json"
-            with open(lyric_path, "r") as f:
+            with open(path.lyrics, "r") as f:
                 lyrics_file = f.read()
                 lyric_json = json.loads(lyrics_file)
             
@@ -157,11 +156,10 @@ class MusicCollection(Music):
                     continue
                 collection.songs[song_name].lyrics = lyric_json[song_name]
 
-
             return collection
 
         elif filetype == ".csv":
-            with open(path, "r") as f:
+            with open(path.csv, "r") as f:
                 csv_reader = csv.reader(f, delimiter=",")
                 header = next(csv_reader)
                 features = header[header.index('artist_name')+1: header.index('feature_artists')]
@@ -392,7 +390,7 @@ class Song(Music):
         """
         path = Path(folder=folder, artist=self.artist_name, album=self.album_name)
         filepath = path.csv if filetype == ".csv" else path.json
-        
+
         if os.path.exists(filepath):
             album = MusicCollection.from_file(filepath, Class=Album)
             if self.song_name in album.songs.keys() and not overwrite:
