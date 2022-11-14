@@ -9,7 +9,7 @@ from multiprocessing import Pool
 from abc import ABC, abstractmethod
 from spotipy.oauth2 import SpotifyClientCredentials
 from copy import deepcopy
-from utils import delete_dir, file_empty, overwrite_dir
+from utils import delete_dir, file_empty, overwrite_dir, Path
 import glob
 
 ##########################################################################################
@@ -54,7 +54,7 @@ song_regex = "edit(ed)?|clean|remix" # TODO: use excluded terms instead, or make
 class Music(ABC):
     @abstractmethod
     def from_spotify(uri):
-        print("implement me")
+        pass
     
     @classmethod
     def request(cls, request):
@@ -64,44 +64,36 @@ class Music(ABC):
                     song = Song.from_spotify(request.query, lyrics_requested=request.lyrics_requested, 
                                 features_wanted=request.features_wanted)#, genius_id=genius_id) TODO: figure out genius ID here
                     return song
+
                 case "album":
                     album = Album.from_spotify(request.query, request.lyrics_requested, request.features_wanted)
                     return album
+
                 case "artist":
-                    # saving within get_artist method after every album in case program crashes
                     artist = Artist.from_spotify(request.query, album_type=request.album_type, regex_filter=request.album_regex,
                                                 region=request.region, limit=request.limit)
                     return artist
+
                 case "playlist":
                     playlist = Playlist.from_spotify(uri=request.query, save_every=request.save_every)
                     return playlist
+
                 case _:
                     raise Exception(f'Unknown request type: \"{request.type}\"')
+                    
         elif request.type == "genius":
             result = Song.get_lyrics(genius_id=request.query)
             print(result)
             # TODO: Figure out how to save this
+
         else:
             if request.lyrics_only:
                 result = Song.get_lyrics(request.query)
                 # TODO: figure out how to save this
             else:
-                # try to find song_uri and get_song
+                # TODO try to find song_uri and get_song
                 pass
 
-    @classmethod
-    def album_folder(cls, base_folder, artist_name, album_name):
-        """
-        Creates artist/album/ folder it it doesn't exist yet.
-        Returns the path to that folder
-        """
-        path = os.path.join(base_folder, artist_name, album_name)
-        if not os.path.exists(path):
-            os.makedirs(path)
-        return path
-    
-    
-    #def _save_multi(self, )
 
 # ########################################################################################   
 #             __  __           _         ____      _ _           _   _             
@@ -115,6 +107,7 @@ class Music(ABC):
 class MusicCollection(Music):
     def __init__(self, songs_to_uri, songs, missing_lyrics, collection_name) -> None:
         # Not a very nice solution, but want to keep name as self.playlist_name and self.album name
+        # TODO: can this be removed?
         if collection_name:
             self.collection_name = collection_name
         else:
@@ -123,8 +116,6 @@ class MusicCollection(Music):
     
     @classmethod
     def from_file(cls, path, Class):
-        # TODO: Maybe undo this? Passing the class as an argument probably means its not a good design decision...
-        # Maybe I can make it a bit more generic?
         assert os.path.exists(path)
         assert issubclass(Class, cls)
         filepath, filetype = os.path.splitext(path)
@@ -169,6 +160,9 @@ class MusicCollection(Music):
             collection = Class(uri=None, album_name=songdict["album_name"], artist_name=songdict["artist_name"])
             collection.songs = songs
             return collection
+        
+        else:
+            raise Exception(f'Unknown file type: \"{filetype}\". Please select either \".json\" or \".csv\"')
     
     def _pool(self, lyrics_requested, features_wanted):
         """
@@ -195,7 +189,6 @@ class MusicCollection(Music):
                 song = Song.from_spotify(uri=song_uri, lyrics_requested=lyrics_requested, 
                                         features_wanted=features_wanted)
                 songs[playlist_name] = song
-                #TODO figure out how to handle missing lyrics? maybe return them too?
                 if not song.lyrics:
                     self.missing_lyrics[playlist_name]= song_uri
         
@@ -204,30 +197,45 @@ class MusicCollection(Music):
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__, indent=4)
     
+    @abstractmethod
+    def get_path(self, base_folder, artist_name, album_name):
+        return Path(folder=base_folder, artist=artist_name, album=album_name)
 
-    def _init_files(self, album_path, filetype, overwrite):
+    def _init_files(self, path, filetype, overwrite):
         """
         Initialises empty files / an empty file if set to overwrite.
         If it succeeds: returns True, else False.
+        # TODO: check if empty files still need to be initialised. Especially if it's not overwrite!!!
         """
         if filetype == ".csv":
-            paths = [f"{album_path}.csv"]
+            filepaths = [path.csv]
         elif filetype == ".json":
-            paths = [f"{album_path}.json", f"{album_path}_lyrics.json"]
+            overwrite_dir(path.temp)
+            filepaths = [path.json, path.lyrics]
         else:
             raise Exception(f'Unknown file type: \"{filetype}\". Please select either \".json\" or \".csv\"')
 
-        for path in paths:
-            if not file_empty(path=path):
+        if not os.path.exists(path.album):
+            os.makdirs(path.album)
+
+        for filepath in filepaths:
+            if not file_empty(path=filepath):
                 if not overwrite:
-                    print(f"\n{path} already exists.\n\nUse '--overwrite' to overwrite\n")
+                    print(f"\n{filepath} already exists.\n\nUse '--overwrite' to overwrite\n")
                     return False
-            open(path, "w").close()
+            open(filepath, "w").close() # overwrites all contents
         return True
     
+    @abstractmethod
+    def _write_csv(self, path, mode):
+        header = list(self.songs.values())[0]._get_csv_header() # A bit ugly to retrieve it like this, but can't make it classmethod because features wanted is attribute
+        with open(path.csv, mode=mode) as stream:
+            writer = csv.writer(stream)
+            if file_empty(path.csv): #Only writes the first time
+                writer.writerow(i for i in header)
+            writer.writerows(self.songs.values())
 
-    def _write(self, path, filetype, index=None):
-        album_path = os.path.join(path, f"{self.collection_name}{str(index) if (index or index==0) else ''}{filetype}")
+    def _write(self, path: Path, filetype, temp=False):
         if filetype == ".json":
             # Using a copy to remove attributes for saving to file while keeping original intact
             copy = deepcopy(self)
@@ -238,22 +246,22 @@ class MusicCollection(Music):
                 delattr(song, "lyrics")
             delattr(copy, "songs_to_uri")
 
+            if temp:
+                album_path, lyrics_path = path.get_temp_paths()
+            else:
+                album_path = path.json
+                lyrics_path= path.lyrics
+
             with open(album_path, mode="w") as f:
                 f.write(copy.to_json())
             
-            with open(os.path.join(path, f"{self.collection_name}{str(index) if (index or index==0) else ''}_lyrics.json"), "w") as f:
+            with open(lyrics_path, "w") as f:
                 f.write(json.dumps(lyrics, indent=4)) 
             
             del copy #likely don't need this, but doesn't hurt
 
         elif filetype == ".csv":
-            mode = "a" if isinstance(self, Playlist) else "w"
-            header = list(self.songs.values())[0]._get_csv_header() # A bit ugly to retrieve it like this, but can't make it classmethod because features wanted is attribute
-            with open(album_path, mode=mode) as stream:
-                writer = csv.writer(stream)
-                if file_empty(album_path): #Only writes the first time
-                    writer.writerow(i for i in header)
-                writer.writerows(self.songs.values())
+            self._write_csv(path=path)
 
         else:
             raise Exception(f'Unknown file type: \"{filetype}\". Please select either \".json\" or \".csv\"')
@@ -322,6 +330,7 @@ class Song(Music):
     def get_lyrics(cls, genius_id=None, song_name=None, artist_name=None, clean_lyrics=True):
         """
         Takes a genius_id or song name and returns the lyrics for it
+        # TODO: logic can probably be cleaned up a bit
         """
         if genius_id:
             pass
@@ -360,20 +369,17 @@ class Song(Music):
         return ["uri", "song_name", "album_name", "artist_name", *self.audio_features.keys(), "feature_artists", "lyrics"]
 
     # TODO: add some tests to this
-    def save(self, folder, filetype, overwrite, lyrics_requested=None, features_wanted=None):
+    def save(self, folder, filetype, overwrite):
         """
         Saves a song using the same structure used when saving albums
         Overwrites the song if it already exists
         Caveat: lyrics will always be appended to the end, this may mess up song order
         """
-        
-        path = Music.album_folder(folder, artist_name = self.artist_name, album_name = self.album_name)
-        album_path = os.path.join(path, f"{self.album_name}{filetype}")
+        path = Path(folder=folder, artist=self.artist_name, album=self.album_name)
+        filepath = path.csv if filetype == ".csv" else path.json
 
-
-        # if path exists -> Doesn't mean song exists!
-        if os.path.exists(album_path):
-            album = MusicCollection.from_file(album_path, Class=Album)
+        if os.path.exists(filepath):
+            album = MusicCollection.from_file(filepath, Class=Album)
             if self.song_name in album.songs.keys() and not overwrite:
                 print(f"\nSong \"{self.song_name}\" exists already.\nPlease use the --overwrite flag to save it.\n")
                 quit()
@@ -403,7 +409,11 @@ class Album(MusicCollection):
         self.songs_to_uri = songs_to_uri
         self.songs = songs
         self.missing_lyrics = missing_lyrics # name:uri of missing songs
+        collection_name = collection_name if collection_name else album_name
         super().__init__(songs_to_uri=songs_to_uri, songs=songs, missing_lyrics=missing_lyrics, collection_name=collection_name)
+
+    def get_path(self, folder):
+        return super().get_path(base_folder=folder, artist_name=self.artist_name, album_name=self.album_name)
 
     @classmethod    # TODO: from a user standpoint it would be nice to switch lyrics_requested and features wanted (order)
     def from_spotify(cls, uri, lyrics_requested, features_wanted):
@@ -420,14 +430,15 @@ class Album(MusicCollection):
     
         return album
 
+    def _write_csv(self, path):
+        return super()._write_csv(path=path, mode="w")
 
-    def save(self, folder, filetype, overwrite, lyrics_requested=None, features_wanted=None):
-        path = Music.album_folder(base_folder=folder, artist_name = self.artist_name, album_name = self.album_name)
-        base_path = os.path.join(path, self.album_name) # TODO: could get merged into Music.album_folder if the funciton isn't used anywhere else (should rename tho)
-        write_allowed = self._init_files(album_path=base_path, filetype=filetype, overwrite=overwrite)
+    def save(self, folder, filetype, overwrite):
+        path = self.get_path(folder)
+        write_allowed = self._init_files(path=path, filetype=filetype, overwrite=overwrite)
         if write_allowed:
             self._write(path=path, filetype=filetype)
-        
+        delete_dir(path.temp) # TODO shouldn't be generated for Albums, need to figure out how to avoid this
 
 
 # ########################################################################################   
@@ -508,7 +519,10 @@ class Playlist(MusicCollection):
         
         return playlist
     
-    def combine_temp(self, path):
+    def get_path(self, base_folder):
+        return super().get_path(base_folder, artist_name="_Playlists", album_name=self.playlist_name)
+
+    def _combine_temp(self, path):
         """
         Combines the files saved in path/.tmp/ into one big playlist and writes it to a file
         """
@@ -524,7 +538,8 @@ class Playlist(MusicCollection):
                                     songs = songs, missing_lyrics=self.missing_lyrics, songs_to_uri_all=self.songs_to_uri_all, collection_name=self.playlist_name)
         return playlist_final
         
-
+    def _write_csv(self, path):
+        return super()._write_csv(path, mode="a")
 
 
     def save(self, folder, filetype, overwrite, lyrics_requested, features_wanted):
@@ -532,42 +547,33 @@ class Playlist(MusicCollection):
         Queries and saves songs of a playlist.
         Songs are queried in batches of size self.save_every and saved in path/.tmp.
         Finally they are all merged to a regular .json or .csv file
-        #TODO: Delete .tmp ONLY on success (if break out of loop)
         """
-        path = Music.album_folder(base_folder=folder, artist_name="_Playlists", album_name=self.playlist_name)
-        base_path = os.path.join(path, self.playlist_name) # TODO: could get merged into Music.album_folder if the funciton isn't used anywhere else (should rename tho)
-        save = self._init_files(album_path=base_path, filetype=filetype, overwrite=overwrite)
-        if filetype == ".json":
-            temp_path = os.path.join(path, ".tmp")
-            overwrite_dir(temp_path)
+        path = self.get_path(folder) #TODO: would make more sense as get_path as path is really only needed in save() where folder is given
+        save = self._init_files(path = path, filetype=filetype, overwrite=overwrite)
         
-        batch = 0
         while save:
             songs = self._pool(features_wanted=features_wanted, lyrics_requested=lyrics_requested)
             self.songs = songs 
             self.songs_to_uri_all.update(self.songs_to_uri)
             
-            # TODO: add saving to .csv here somewhere? Don't really need helperfiles, can just append
             if filetype == ".json":
-                self._write(path=temp_path, filetype=filetype, index=batch)
+                self._write(path=path, filetype=filetype, temp=True)
             else:
-                self._write(path=path, filetype=filetype, index=None)
+                self._write(path=path, filetype=filetype)
             self._next()
-            batch += 1
+
             if not self.songs_to_uri:
                 delete_tmp = True
                 break
         
         if filetype == ".json":
-            combined = self.combine_temp(path)
+            combined = self._combine_temp(path.album)
             combined._write(path = path, filetype=filetype)
-            if delete_tmp: # TODO Probably unnecessary
-                delete_dir(temp_path)
+            if delete_tmp:
+                delete_dir(path.temp)
     
 
     def _next(self):
-        # increments self.offset by self.limit
         self.offset += self.save_every
-        # gathers the next set of tracks
-        spotify_playlist_items = spotify.playlist_items(self.uri, limit=self.save_every, offset=self.offset)
-        self.songs_to_uri =  {entry["track"]["name"]:entry["track"]["uri"] for entry in spotify_playlist_items['items']}
+        spotify_playlist_items = spotify.playlist_items(self.uri, limit=self.save_every, offset=self.offset) # gather the next set of tracks
+        self.songs_to_uri = {entry["track"]["name"]:entry["track"]["uri"] for entry in spotify_playlist_items['items']}
