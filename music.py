@@ -91,22 +91,9 @@ class Music(ABC):
                 result = Song.get_lyrics(request.query)
                 # TODO: figure out how to save this
             else:
-                # try to find song_uri and get_song
+                # TODO try to find song_uri and get_song
                 pass
 
-    @classmethod
-    def album_folder(cls, base_folder, artist_name, album_name):
-        """
-        Creates artist/album/ folder it it doesn't exist yet.
-        Returns the path to that folder
-        """
-        path = os.path.join(base_folder, artist_name, album_name)
-        if not os.path.exists(path):
-            os.makedirs(path)
-        return path
-    
-    
-    #def _save_multi(self, )
 
 # ########################################################################################   
 #             __  __           _         ____      _ _           _   _             
@@ -211,7 +198,6 @@ class MusicCollection(Music):
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__, indent=4)
     
-    # TODO: can probably remove this
     @abstractmethod
     def get_path(self, base_folder, artist_name, album_name):
         return Path(folder=base_folder, artist=artist_name, album=album_name)
