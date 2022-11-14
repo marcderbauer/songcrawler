@@ -1,4 +1,4 @@
-from music import Music, Artist
+from music import Music, Artist, Playlist
 
 # ASCII Art: https://patorjk.com/software/taag/#p=display&v=0&f=Standard
 ##########################################################################################
@@ -35,13 +35,17 @@ class Songcrawler():
             lyrics_requested = self.lyrics_requested
         r = Request(query)
         result = Music.request(r)
-        # TODO: flesh logic out here
+
         if isinstance(result, Artist):
             result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
                          features_wanted=self.features_wanted, overwrite=self.overwrite, limit=self.limit)
-        else:
+
+        elif isinstance(result, Playlist):
             result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite, lyrics_requested=lyrics_requested, 
                         features_wanted=self.features_wanted)
+
+        else:
+            result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite, lyrics_requested=lyrics_requested)
         return result
 
 

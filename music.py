@@ -369,7 +369,7 @@ class Song(Music):
         return ["uri", "song_name", "album_name", "artist_name", *self.audio_features.keys(), "feature_artists", "lyrics"]
 
     # TODO: add some tests to this
-    def save(self, folder, filetype, overwrite, lyrics_requested=None, features_wanted=None):
+    def save(self, folder, filetype, overwrite):
         """
         Saves a song using the same structure used when saving albums
         Overwrites the song if it already exists
@@ -433,7 +433,7 @@ class Album(MusicCollection):
     def _write_csv(self, path):
         return super()._write_csv(path=path, mode="w")
 
-    def save(self, folder, filetype, overwrite, lyrics_requested=None, features_wanted=None):
+    def save(self, folder, filetype, overwrite):
         path = self.get_path(folder)
         write_allowed = self._init_files(path=path, filetype=filetype, overwrite=overwrite)
         if write_allowed:
