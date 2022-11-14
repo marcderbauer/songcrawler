@@ -96,6 +96,174 @@ class Music(ABC):
 
 
 # ########################################################################################   
+#                                 ____                    
+#                                / ___|  ___  _ __   __ _ 
+#                                \___ \ / _ \| '_ \ / _` |
+#                                 ___) | (_) | | | | (_| |
+#                                |____/ \___/|_| |_|\__, |
+#                                                   |___/ 
+# ########################################################################################   
+
+class Song(Music):
+    def __init__(self, uri, song_name, album_name, artist_name, audio_features, feature_artists = None, lyrics=None) -> None:
+        self.uri = uri
+        self.song_name = song_name
+        self.album_name = album_name
+        self.artist_name = artist_name
+        self.audio_features = audio_features
+        self.feature_artists = feature_artists
+        self.lyrics = lyrics
+    
+    def __repr__(self) -> str:
+        printstring = f"""
+        Name:           {self.song_name}
+        Album:          {self.album_name}
+        Artist:         {self.artist_name}
+        Found Lyrics:   {f"{self.lyrics[:50]}..." if self.lyrics else "No :("}    
+        """
+        return printstring
+    
+    @classmethod
+    def multi_run_wrapper(cls, input_args):
+        uri, (lyrics_requested, features_wanted) = input_args
+        return Song.from_spotify(uri=uri, lyrics_requested=lyrics_requested, features_wanted=features_wanted)
+        
+    @classmethod
+    def from_spotify(cls, uri, lyrics_requested, features_wanted, genius_id=None):
+        spotify_song = spotify.track(uri)
+
+        song_name = spotify_song['name']
+        artist_name = spotify_song['artists'][0]['name']
+        album_name = spotify_song['album']['name']
+        feature_artists = [artist["name"] for artist in spotify_song['artists']][1:]
+        audio_features = spotify.audio_features(tracks=[uri])[0]
+        audio_features = dict(filter(lambda i:i[0] in features_wanted, audio_features.items()))
+
+        song = Song(uri=uri, song_name=song_name, album_name=album_name, artist_name=artist_name, 
+                    audio_features=audio_features, feature_artists=feature_artists)
+
+        if lyrics_requested:
+            if genius_id:
+                song.lyrics = Song.get_lyrics(genius_id = genius_id)
+            # Get song lyrics
+            if not song.lyrics:
+                song.lyrics = Song.get_lyrics(song_name=song_name, artist_name=artist_name)
+
+        print(f"Retrieved Song: {song.song_name}")
+        return song
+    
+    @classmethod
+    def get_lyrics(cls, genius_id=None, song_name=None, artist_name=None, clean_lyrics=True):
+        """
+        Takes a genius_id or song name and returns the lyrics for it
+        # TODO: logic can probably be cleaned up a bit
+        """
+        if genius_id:
+            pass
+        elif (song_name == None or artist_name == None):
+            raise Exception("requires either a genius_id or a songname and artist")
+        
+        if genius_id:
+                lyrics = genius.search_song(song_id=genius_id).lyrics # TODO: should try without genius id if this fails
+        else:
+            name_filtered = re.sub(r" *(\(.*\)|feat\.?.*|ft\..*)", "", song_name)
+            genius_song = genius.search_song(title=name_filtered, artist=artist_name)
+            try:
+                lyrics = genius_song.lyrics
+            except:
+                lyrics = ""
+
+        if clean_lyrics:
+            lyrics = Song.clean_lyrics(lyrics)
+
+        return lyrics
+
+    #TODO: would this make sense to not have as class method? Depends on genius class (i.e. without spotify i.g.)
+    @classmethod
+    def clean_lyrics(cls, lyrics):
+        lyrics = re.sub(r"^.*Lyrics(\n)?", "", lyrics) # <Songname> "Lyrics" (\n)?
+        lyrics = re.sub(r"\d*Embed$", "", lyrics) # ... <digits>"Embed"
+        lyrics = re.sub("(\u205f|\u0435|\u2014|\u2019) ?", " ", lyrics) # Unicode space variants # TODO: check which characters they correspond to
+        lyrics = re.sub(r"\n+", r"\n", lyrics) # squeezes multiple newlines into one
+        lyrics = re.sub(r" +", r" ", lyrics) # squeezes multiple spaces into one
+        return lyrics
+    
+    def __iter__(self):
+        return iter([self.uri, self.song_name, self.album_name, self.artist_name, *self.audio_features.values(), self.feature_artists, self.lyrics])
+
+    def _get_csv_header(self):
+        return ["uri", "song_name", "album_name", "artist_name", *self.audio_features.keys(), "feature_artists", "lyrics"]
+
+    # TODO: add some tests to this
+    def save(self, folder, filetype, overwrite):
+        """
+        Saves a song using the same structure used when saving albums
+        Overwrites the song if it already exists
+        Caveat: lyrics will always be appended to the end, this may mess up song order
+        """
+        path = Path(folder=folder, artist=self.artist_name, album=self.album_name)
+        filepath = path.csv if filetype == ".csv" else path.json
+
+        if os.path.exists(filepath):
+            album = MusicCollection.from_file(filepath, Class=Album)
+            if self.song_name in album.songs.keys() and not overwrite:
+                print(f"\nSong \"{self.song_name}\" exists already.\nPlease use the --overwrite flag to save it.\n")
+                quit()
+            else:
+                album.songs[self.song_name] = self
+        else:
+            album = Album(uri=None, album_name=self.album_name, artist_name=self.artist_name)
+        
+        # write album to file. Call album.save for this 
+        album.save(folder=folder, filetype=filetype, overwrite=overwrite)
+
+
+# ########################################################################################   
+#                                 _         _   _     _   
+#                                / \   _ __| |_(_)___| |_ 
+#                               / _ \ | '__| __| / __| __|
+#                              / ___ \| |  | |_| \__ \ |_ 
+#                             /_/   \_\_|   \__|_|___/\__|
+#                                                        
+# ########################################################################################   
+
+class Artist(Music):
+    def __init__(self, uri, artist_name, albums_to_uri=None, albums={}, missing_lyrics=None) -> None:
+        self.uri = uri
+        self.artist_name = artist_name
+        self.albums_to_uri = albums_to_uri
+        self.albums = {}
+        self.missing_lyrics = {} # name:uri of missing songs 
+    
+    @classmethod
+    def from_spotify(cls, uri, album_type, regex_filter=None, region="US", limit=50):
+        spotify_artist = spotify.artist_albums(uri, album_type=album_type, country=region, limit=limit)
+        artist_name = spotify.artist(uri)["name"]
+        if regex_filter:
+            albums_to_uri = {album["name"]:album["uri"] for album in spotify_artist['items'] if not re.search(regex_filter, album["name"], re.I)}
+        else:
+            albums_to_uri = {album["name"]:album["uri"] for album in spotify_artist['items']}
+        artist = Artist(uri=uri, artist_name=artist_name, albums_to_uri=albums_to_uri)
+        return artist
+
+    def get_albums(self, folder, filetype, lyrics_requested, features_wanted, overwrite, limit=50):
+        """
+        retrieves albums using albums_to_uri
+        In a seperate method as saving albums is included in this method too (safer in case of crash)
+        """
+        for album_number, (name, uri) in enumerate(self.albums_to_uri.items()):
+            if album_number == limit:
+                print("Reached maximum amount of albums that can be requested. Current limit: {limit}.\n Unfortunately the limit can't be raised past 50...")
+                break
+
+            print(f"\n {'-'*100}\n Album: {name}\n")
+            album = Album.from_spotify(uri=uri, lyrics_requested=lyrics_requested, features_wanted=features_wanted)
+            album.save(folder, filetype, overwrite=overwrite)
+            self.albums[name] = album
+            # TODO: find all missing songs across albums
+   
+
+# ########################################################################################   
 #             __  __           _         ____      _ _           _   _             
 #            |  \/  |_   _ ___(_) ___   / ___|___ | | | ___  ___| |_(_) ___  _ __  
 #            | |\/| | | | / __| |/ __| | |   / _ \| | |/ _ \/ __| __| |/ _ \| '_ \ 
@@ -268,130 +436,6 @@ class MusicCollection(Music):
 
 
 
-
-# ########################################################################################   
-#                                 ____                    
-#                                / ___|  ___  _ __   __ _ 
-#                                \___ \ / _ \| '_ \ / _` |
-#                                 ___) | (_) | | | | (_| |
-#                                |____/ \___/|_| |_|\__, |
-#                                                   |___/ 
-# ########################################################################################   
-
-class Song(Music):
-    def __init__(self, uri, song_name, album_name, artist_name, audio_features, feature_artists = None, lyrics=None) -> None:
-        self.uri = uri
-        self.song_name = song_name
-        self.album_name = album_name
-        self.artist_name = artist_name
-        self.audio_features = audio_features
-        self.feature_artists = feature_artists
-        self.lyrics = lyrics
-    
-    def __repr__(self) -> str:
-        printstring = f"""
-        Name:           {self.song_name}
-        Album:          {self.album_name}
-        Artist:         {self.artist_name}
-        Found Lyrics:   {f"{self.lyrics[:50]}..." if self.lyrics else "No :("}    
-        """
-        return printstring
-    
-    @classmethod
-    def multi_run_wrapper(cls, input_args):
-        uri, (lyrics_requested, features_wanted) = input_args
-        return Song.from_spotify(uri=uri, lyrics_requested=lyrics_requested, features_wanted=features_wanted)
-        
-    @classmethod
-    def from_spotify(cls, uri, lyrics_requested, features_wanted, genius_id=None):
-        spotify_song = spotify.track(uri)
-
-        song_name = spotify_song['name']
-        artist_name = spotify_song['artists'][0]['name']
-        album_name = spotify_song['album']['name']
-        feature_artists = [artist["name"] for artist in spotify_song['artists']][1:]
-        audio_features = spotify.audio_features(tracks=[uri])[0]
-        audio_features = dict(filter(lambda i:i[0] in features_wanted, audio_features.items()))
-
-        song = Song(uri=uri, song_name=song_name, album_name=album_name, artist_name=artist_name, 
-                    audio_features=audio_features, feature_artists=feature_artists)
-
-        if lyrics_requested:
-            if genius_id:
-                song.lyrics = Song.get_lyrics(genius_id = genius_id)
-            # Get song lyrics
-            if not song.lyrics:
-                song.lyrics = Song.get_lyrics(song_name=song_name, artist_name=artist_name)
-
-        print(f"Retrieved Song: {song.song_name}")
-        return song
-    
-    @classmethod
-    def get_lyrics(cls, genius_id=None, song_name=None, artist_name=None, clean_lyrics=True):
-        """
-        Takes a genius_id or song name and returns the lyrics for it
-        # TODO: logic can probably be cleaned up a bit
-        """
-        if genius_id:
-            pass
-        elif (song_name == None or artist_name == None):
-            raise Exception("requires either a genius_id or a songname and artist")
-        
-        if genius_id:
-                lyrics = genius.search_song(song_id=genius_id).lyrics # TODO: should try without genius id if this fails
-        else:
-            name_filtered = re.sub(r" *(\(.*\)|feat\.?.*|ft\..*)", "", song_name)
-            genius_song = genius.search_song(title=name_filtered, artist=artist_name)
-            try:
-                lyrics = genius_song.lyrics
-            except:
-                lyrics = ""
-
-        if clean_lyrics:
-            lyrics = Song.clean_lyrics(lyrics)
-
-        return lyrics
-
-    #TODO: would this make sense to not have as class method? Depends on genius class (i.e. without spotify i.g.)
-    @classmethod
-    def clean_lyrics(cls, lyrics):
-        lyrics = re.sub(r"^.*Lyrics(\n)?", "", lyrics) # <Songname> "Lyrics" (\n)?
-        lyrics = re.sub(r"\d*Embed$", "", lyrics) # ... <digits>"Embed"
-        lyrics = re.sub("(\u205f|\u0435|\u2014|\u2019) ?", " ", lyrics) # Unicode space variants # TODO: check which characters they correspond to
-        lyrics = re.sub(r"\n+", r"\n", lyrics) # squeezes multiple newlines into one
-        lyrics = re.sub(r" +", r" ", lyrics) # squeezes multiple spaces into one
-        return lyrics
-    
-    def __iter__(self):
-        return iter([self.uri, self.song_name, self.album_name, self.artist_name, *self.audio_features.values(), self.feature_artists, self.lyrics])
-
-    def _get_csv_header(self):
-        return ["uri", "song_name", "album_name", "artist_name", *self.audio_features.keys(), "feature_artists", "lyrics"]
-
-    # TODO: add some tests to this
-    def save(self, folder, filetype, overwrite):
-        """
-        Saves a song using the same structure used when saving albums
-        Overwrites the song if it already exists
-        Caveat: lyrics will always be appended to the end, this may mess up song order
-        """
-        path = Path(folder=folder, artist=self.artist_name, album=self.album_name)
-        filepath = path.csv if filetype == ".csv" else path.json
-
-        if os.path.exists(filepath):
-            album = MusicCollection.from_file(filepath, Class=Album)
-            if self.song_name in album.songs.keys() and not overwrite:
-                print(f"\nSong \"{self.song_name}\" exists already.\nPlease use the --overwrite flag to save it.\n")
-                quit()
-            else:
-                album.songs[self.song_name] = self
-        else:
-            album = Album(uri=None, album_name=self.album_name, artist_name=self.artist_name)
-        
-        # write album to file. Call album.save for this 
-        album.save(folder=folder, filetype=filetype, overwrite=overwrite)
-
-
 # ########################################################################################   
 #                                _    _ _                     
 #                               / \  | | |__  _   _ _ __ ___  
@@ -441,50 +485,6 @@ class Album(MusicCollection):
         delete_dir(path.temp) # TODO shouldn't be generated for Albums, need to figure out how to avoid this
 
 
-# ########################################################################################   
-#                                 _         _   _     _   
-#                                / \   _ __| |_(_)___| |_ 
-#                               / _ \ | '__| __| / __| __|
-#                              / ___ \| |  | |_| \__ \ |_ 
-#                             /_/   \_\_|   \__|_|___/\__|
-#                                                        
-# ########################################################################################   
-
-class Artist(Music):
-    def __init__(self, uri, artist_name, albums_to_uri=None, albums={}, missing_lyrics=None) -> None:
-        self.uri = uri
-        self.artist_name = artist_name
-        self.albums_to_uri = albums_to_uri
-        self.albums = {}
-        self.missing_lyrics = {} # name:uri of missing songs 
-    
-    @classmethod
-    def from_spotify(cls, uri, album_type, regex_filter=None, region="US", limit=50):
-        spotify_artist = spotify.artist_albums(uri, album_type=album_type, country=region, limit=limit)
-        artist_name = spotify.artist(uri)["name"]
-        if regex_filter:
-            albums_to_uri = {album["name"]:album["uri"] for album in spotify_artist['items'] if not re.search(regex_filter, album["name"], re.I)}
-        else:
-            albums_to_uri = {album["name"]:album["uri"] for album in spotify_artist['items']}
-        artist = Artist(uri=uri, artist_name=artist_name, albums_to_uri=albums_to_uri)
-        return artist
-
-    def get_albums(self, folder, filetype, lyrics_requested, features_wanted, overwrite, limit=50):
-        """
-        retrieves albums using albums_to_uri
-        In a seperate method as saving albums is included in this method too (safer in case of crash)
-        """
-        for album_number, (name, uri) in enumerate(self.albums_to_uri.items()):
-            if album_number == limit:
-                print("Reached maximum amount of albums that can be requested. Current limit: {limit}.\n Unfortunately the limit can't be raised past 50...")
-                break
-
-            print(f"\n {'-'*100}\n Album: {name}\n")
-            album = Album.from_spotify(uri=uri, lyrics_requested=lyrics_requested, features_wanted=features_wanted)
-            album.save(folder, filetype, overwrite=overwrite)
-            self.albums[name] = album
-            # TODO: find all missing songs across albums
-                      
 # ########################################################################################   
 #                            ____  _             _ _     _   
 #                           |  _ \| | __ _ _   _| (_)___| |_ 
@@ -577,3 +577,4 @@ class Playlist(MusicCollection):
         self.offset += self.save_every
         spotify_playlist_items = spotify.playlist_items(self.uri, limit=self.save_every, offset=self.offset) # gather the next set of tracks
         self.songs_to_uri = {entry["track"]["name"]:entry["track"]["uri"] for entry in spotify_playlist_items['items']}
+                   
