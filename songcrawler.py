@@ -1,4 +1,4 @@
-from music import Music, Artist
+from music import Music, Artist, Playlist
 
 # ASCII Art: https://patorjk.com/software/taag/#p=display&v=0&f=Standard
 ##########################################################################################
@@ -11,19 +11,20 @@ from music import Music, Artist
 # ########################################################################################  
 
 class Songcrawler():
-    def __init__(self, lyrics_requested=True, filetype="json", region="US", folder="data", overwrite=False, limit=50, album_type="album") -> None:
+    def __init__(self, lyrics_requested=True, filetype="json", region="US", folder="data", overwrite=False, limit=50, album_type="album", save_every=50) -> None:
         self.lyrics_requested = lyrics_requested
         self.filetype = filetype
         self.features_wanted = ['danceability', 'energy', 'key', 'loudness',
                                 'mode', 'speechiness', 'acousticness', 'instrumentalness',
                                 'liveness', 'valence', 'tempo', 'time_signature', 'duration_ms']
-        self.no_lyrics = {} # trackname: spotify_uri for songs without lyrics # Todo: remember to reset after each request
+        self.no_lyrics = {} # trackname: spotify_uri for songs without lyrics # TODO: remember to reset after each request
         self.region = region #setting country to US arbitrarily to avoid duplicates across regions
         self.album_regex = "Deluxe|Edition"
         self.folder = folder
         self.overwrite = overwrite
         self.limit = limit
         self.album_type = album_type
+        self.save_every = 50
 
     def request(self, query, lyrics_requested=None):
         """
@@ -34,12 +35,17 @@ class Songcrawler():
             lyrics_requested = self.lyrics_requested
         r = Request(query)
         result = Music.request(r)
-        # TODO: flesh logic out here
+
         if isinstance(result, Artist):
             result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
                          features_wanted=self.features_wanted, overwrite=self.overwrite, limit=self.limit)
+
+        elif isinstance(result, Playlist):
+            result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite, lyrics_requested=lyrics_requested, 
+                        features_wanted=self.features_wanted)
+
         else:
-            result.save(self.folder, self.filetype, overwrite=self.overwrite)
+            result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite, lyrics_requested=lyrics_requested)
         return result
 
 
