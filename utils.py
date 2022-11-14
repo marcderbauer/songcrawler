@@ -20,6 +20,15 @@ def overwrite_dir(path, verbose=False):
     if verbose:
         print(f"Force created directory {path}")
 
+##########################################################################################
+#                                    ____       _   _     
+#                                   |  _ \ __ _| |_| |__  
+#                                   | |_) / _` | __| '_ \ 
+#                                   |  __/ (_| | |_| | | |
+#                                   |_|   \__,_|\__|_| |_|
+#                                                                                                                                
+# ########################################################################################  
+
 class Path():
     def __init__(self, folder, artist, album) -> None:
         self.folder = folder
@@ -58,5 +67,5 @@ class Path():
         return path
 
 if __name__ == "__main__":
-    path = Path.from_string('data/The 1975/')
+    path = Path.from_string('data/The 1975/') #Throws error (as desired)
     print(path)

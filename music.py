@@ -115,16 +115,14 @@ class MusicCollection(Music):
         super().__init__()
     
     @classmethod
-    def from_file(cls, path_string, Class):
-        assert os.path.exists(path_string)
+    def from_file(cls, path, Class):
+        assert os.path.exists(path)
         assert issubclass(Class, cls)
-
-        path = Path.from_string(path_string)
-        filetype = os.path.splitext(path_string)[1]
+        filepath, filetype = os.path.splitext(path)
         
         if filetype == ".json":
             # Collection
-            with open(path.json, "r") as f:
+            with open(path, "r") as f:
                 collection_file = f.read()
                 collection_json = json.loads(collection_file)
                 songs = {name: Song(song["uri"], song["song_name"], song["album_name"], 
@@ -133,7 +131,8 @@ class MusicCollection(Music):
                 collection = Class(**collection_json)    
             
             # Lyrics
-            with open(path.lyrics, "r") as f:
+            lyric_path = filepath + f"_lyrics.json"
+            with open(lyric_path, "r") as f:
                 lyrics_file = f.read()
                 lyric_json = json.loads(lyrics_file)
             
@@ -143,10 +142,11 @@ class MusicCollection(Music):
                     continue
                 collection.songs[song_name].lyrics = lyric_json[song_name]
 
+
             return collection
 
         elif filetype == ".csv":
-            with open(path.csv, "r") as f:
+            with open(path, "r") as f:
                 csv_reader = csv.reader(f, delimiter=",")
                 header = next(csv_reader)
                 features = header[header.index('artist_name')+1: header.index('feature_artists')]
@@ -189,7 +189,6 @@ class MusicCollection(Music):
                 song = Song.from_spotify(uri=song_uri, lyrics_requested=lyrics_requested, 
                                         features_wanted=features_wanted)
                 songs[playlist_name] = song
-                #TODO figure out how to handle missing lyrics? maybe return them too?
                 if not song.lyrics:
                     self.missing_lyrics[playlist_name]= song_uri
         
@@ -206,6 +205,7 @@ class MusicCollection(Music):
         """
         Initialises empty files / an empty file if set to overwrite.
         If it succeeds: returns True, else False.
+        # TODO: check if empty files still need to be initialised. Especially if it's not overwrite!!!
         """
         if filetype == ".csv":
             filepaths = [path.csv]
@@ -330,6 +330,7 @@ class Song(Music):
     def get_lyrics(cls, genius_id=None, song_name=None, artist_name=None, clean_lyrics=True):
         """
         Takes a genius_id or song name and returns the lyrics for it
+        # TODO: logic can probably be cleaned up a bit
         """
         if genius_id:
             pass
