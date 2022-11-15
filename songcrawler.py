@@ -45,7 +45,7 @@ class Songcrawler():
                         features_wanted=self.features_wanted)
 
         else:
-            result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite, lyrics_requested=lyrics_requested)
+            result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite)
         return result
 
 

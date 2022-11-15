@@ -275,6 +275,7 @@ class Artist(Music):
 class MusicCollection(Music):
     def __init__(self, songs_to_uri, songs, missing_lyrics, collection_name) -> None:
         # Not a very nice solution, but want to keep name as self.playlist_name and self.album name
+        # TODO: currently have three attributes passed here which are unused. What to do?
         # TODO: can this be removed?
         if collection_name:
             self.collection_name = collection_name
