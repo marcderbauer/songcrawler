@@ -6,6 +6,7 @@ Crawl Spotify and Genius for all the songs of your favourite artist!
 
 This program was built using <code>Python 3.10</code>.  
 Older versions may work, but are currently not supported.  
+So far I have only tested this on OSX. I plan on testing this on Windows in the future, but it may currently not work.
 
 You will also need to setup access to the Spotify and Genius APIs. More on that below.
 
@@ -41,16 +42,55 @@ The lyrics are gathered through the Genius API.
 After setting up both the Spotify and Genius API you are ready to go.
 <br>
   
-## How It Works
+## :notes: How It Works
 
-Explain :)
+There are two main ways to use this repo:
+1. As a command-line interface (CLI)
+2. As a Python module
 
-Here on usage as:
+The songcrawler project was made with the intention of creating a CLI. It was then written in a way that should make it usable as a Python module, but that functionality is secondary.
 
-1. CLI
-2. Python class
+### Command-Line Interface
+The `CLI` functionality is provided in the `main.py`. You can use it as follows:  
+    
+    python3 main.py query
+    
+`query` is a variable, which could take the following forms:
+1. A Spotify URI (e.g. `spotify:track:2Ud3deeqLAG988pfW0Kwcl`)
+2. A Genius ID (e.g. `8150537`)
+3. Songname + Artist _(not implemented yet 15.11.22)_
 
-Main use-case is CLI, so elaborate more on that.
+There are many additional parameters and flags to adjust the program's behaviour.
+To list them all you can use:
+    
+    python3 main.py --help
+
+#### Spotify URI
+Spotify URIs are the main way of using this program. They are quite flexible, as they represent not only songs, but also entire albums, playlists or even artists.
+
+You can access the URIs through the share menu, which, for songs you find by right-clicking on them, and for all other resources through the three dot button at the top. Under the _share_ option, the URIs are currently hidden. In order to reveal them, you need to use the `option` key on mac or the `ctrl` key on Windows.
+
+![Accessing the URIs](https://raw.githubusercontent.com/marcderbauer/marcderbauer/main/assets/spotify_uri.gif)  
+_Credit: [MattSuda in the Spotify Community](https://community.spotify.com/t5/Desktop-Mac/URI-no-longer-a-share-option/td-p/5179876)_
+
+With the Spotify URI, you can use the CLI like this:
+    
+    python3 main.py spotify:album:1R8kkopLT4IAxzMMkjic6X
+    
+#### Genius IDs
+Sometimes artists have different songs with the same name (looking at you, The 1975...). Other times, the Genius API may just have difficulties finding the correct song. In this case you can query the lyrics directly using the Genius ID.
+
+This works the same way as with Spotify URIs:
+    
+    python3 main.py 8150537
+
+It is only supported for single songs. There is no easy way to gather the Genius ID as of now, see issue #29.
+
+#### Songname and Artist
+
+*TODO:* Implement
+
+### Python Module
 
 ## Contribute
 
