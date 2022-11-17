@@ -4,8 +4,8 @@ from songcrawler import Songcrawler
 
 # TODO: check best practices regarding spaces / underscores
 parser = argparse.ArgumentParser(description='Gather Spotify statistics and Genius lyrics.')
-#parser.add_argument("query", nargs="+", type=str, help="Either a Spotify uri, a songname or a genius id") # Use nargs+ to query song by name and artist
-parser.add_argument("query", type=str, help="Either a Spotify uri, a songname or a genius id")
+parser.add_argument("query", nargs="+", type=str, help="Either a Spotify uri, a songname or a genius id") # Use nargs+ to query song by name and artist
+# parser.add_argument("query", type=str, help="Either a Spotify uri, a songname or a genius id")
 parser.add_argument("--filetype", type=str, default=".json", help="Filetype to save output as. Possible options: .json, .csv")
 parser.add_argument("--genius", default=False, action='store_true', help="Lists alternative Genius ids when main argument is a songname")
 parser.add_argument("--no_lyrics", default=False, action='store_true', help="Skips gathering lyrics and only queries spotify statistics.")

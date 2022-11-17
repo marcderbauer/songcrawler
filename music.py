@@ -354,7 +354,7 @@ class MusicCollection(Music):
             except Exception as e:
                 # TODO This could be handled better in the future, but should do the trick for now
                 self.missing_lyrics.update(self.songs_to_uri)
-                print(f"Error while querying album {self.collection_name}.\n Error message under errors.txt")
+                print(f"Error while querying album {self.collection_name}.\nError message under errors.txt")
                 with open ("errors.txt", "a") as f:
                     f.write(str(e))
 
