@@ -11,7 +11,7 @@ from music import Music, Artist, Playlist
 # ########################################################################################  
 
 class Songcrawler():
-    def __init__(self, lyrics_requested=True, filetype="json", region="US", folder="data", overwrite=False, limit=50, album_type="album", save_every=50) -> None:
+    def __init__(self, lyrics_requested=True, filetype="json", region="US", folder="data", overwrite=False, limit=50, album_type="album", save_every=50, get_ids=False) -> None:
         self.lyrics_requested = lyrics_requested
         self.filetype = filetype
         self.features_wanted = ['danceability', 'energy', 'key', 'loudness',
@@ -25,6 +25,7 @@ class Songcrawler():
         self.limit = limit
         self.album_type = album_type
         self.save_every = 50
+        self.get_ids = get_ids
 
     def request(self, query, lyrics_requested=None):
         """
@@ -33,7 +34,7 @@ class Songcrawler():
         """
         if not lyrics_requested:
             lyrics_requested = self.lyrics_requested
-        r = Request(query)
+        r = Request(query, self)
         result = Music.request(r)
 
         if isinstance(result, Artist):
@@ -60,8 +61,12 @@ class Songcrawler():
 # ########################################################################################     
 
 class Request(Songcrawler):
-    def __init__(self, query: str) -> None:
-        super().__init__()
+    def __init__(self, query: str, parent:Songcrawler) -> None:
+        if parent:
+            for key, val in vars(parent).items():
+                setattr(self, key, val)
+        else:
+            super().__init__()
         # TODO: add param for: genius_id
         self.query = query
         self.type = self.get_request_type(query)

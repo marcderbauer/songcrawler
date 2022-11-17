@@ -14,6 +14,7 @@ parser.add_argument("--folder", type=str, default="data", help="Output folder")
 parser.add_argument("--overwrite", default=False, action='store_true', help="Overwrites existing songs/albums/artists/playlists")
 parser.add_argument("--album_type",type=str, default="album", help="Type of albums to retrieve when querying an album. Possible Values: album, ep")
 parser.add_argument("--save_every", type=int, default=50, help="Incremental saving when querying playlists.")
+parser.add_argument("--get_ids", default=False, action='store_true', help="Gathers genius_ids for a given search term and prints them to the terminal.")
 args = parser.parse_args()
 
 #TODO: add all possible album types to --album_type help
@@ -28,7 +29,8 @@ def main():
                     folder=args.folder,
                     overwrite=args.overwrite,
                     album_type=args.album_type,
-                    save_every=args.save_every)
+                    save_every=args.save_every,
+                    get_ids = args.get_ids)
     sc.request(args.query)
 
 if __name__=="__main__":

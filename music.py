@@ -86,13 +86,18 @@ class Music(ABC):
             print(result)
             # TODO: Figure out how to save this
 
+        elif request.get_ids:
+            # Would make sense to move this to setup, but only really required in this specific case
+            api = lyricsgenius.API(os.environ["GENIUS_ACCESS_TOKEN"])
+            search = api.search_songs(request.query)
+            id_to_artist_song = {hit['result']['id']:(hit['result']['artist_names'], hit['result']['title']) for hit in search['hits']}
+            print(json.dumps(id_to_artist_song, indent=4, ensure_ascii=False))
+            quit()
+
         else:
-            if request.lyrics_only:
-                result = Song.get_lyrics(request.query)
+            result = Song.get_lyrics(request.query)
                 # TODO: figure out how to save this
-            else:
-                # TODO try to find song_uri and get_song
-                pass
+            
 
 
 # ########################################################################################   
@@ -364,7 +369,7 @@ class MusicCollection(Music):
         return songs
     
     def to_json(self):
-        return json.dumps(self, default=lambda o: o.__dict__, indent=4)
+        return json.dumps(self, default=lambda o: o.__dict__, indent=4, ensure_ascii=False)
     
     @abstractmethod
     def get_path(self, base_folder, artist_name, album_name):
@@ -425,7 +430,7 @@ class MusicCollection(Music):
                 f.write(copy.to_json())
             
             with open(lyrics_path, "w") as f:
-                f.write(json.dumps(lyrics, indent=4)) 
+                f.write(json.dumps(lyrics, indent=4, ensure_ascii=False)) 
             
             del copy #likely don't need this, but doesn't hurt
 
