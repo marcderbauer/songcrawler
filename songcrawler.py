@@ -95,10 +95,11 @@ class Request(Songcrawler):
         uri = self.query.split(":")[1]    
         return uri
 
-    def split_search(s):
+    def split_search(self,s):
         """
         Takes a search string and splits it by keywords
         Returns a dictionary {keyword: value}
+        If no keywords are found it returns a dictionary with a single element "search" and the query as value.
         Loosely based on this:
         https://stackoverflow.com/questions/61056453/split-string-based-on-given-words-from-list
         """
@@ -108,4 +109,8 @@ class Request(Songcrawler):
         m = [i.strip() for i in m if i] # removes empty strings and whitespaces
         keyword = m[::2]
         value = m[1::2]
-        return dict(zip(keyword, value))
+        if value:
+            d = dict(zip(keyword, value))
+        else:
+            d = {"search":keyword[0]}
+        return d
