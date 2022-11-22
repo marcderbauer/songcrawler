@@ -1,4 +1,5 @@
 from music import Music, Artist, Playlist
+import re
 
 # ASCII Art: https://patorjk.com/software/taag/#p=display&v=0&f=Standard
 ##########################################################################################
@@ -93,3 +94,18 @@ class Request(Songcrawler):
         """
         uri = self.query.split(":")[1]    
         return uri
+
+    def split_search(s):
+        """
+        Takes a search string and splits it by keywords
+        Returns a dictionary {keyword: value}
+        Loosely based on this:
+        https://stackoverflow.com/questions/61056453/split-string-based-on-given-words-from-list
+        """
+        l = ["artist", "track", "album", "playlist"]
+        s = re.sub(":", "", s)
+        m = re.split(rf"({'|'.join(l)})", s, re.I)
+        m = [i.strip() for i in m if i] # removes empty strings and whitespaces
+        keyword = m[::2]
+        value = m[1::2]
+        return dict(zip(keyword, value))
