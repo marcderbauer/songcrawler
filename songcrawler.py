@@ -80,14 +80,12 @@ class Request(Songcrawler):
         """
         Differentiates whether the query is a genius_id, spotify_uri, or songname
         """
-        if isinstance(query, list):
-            return("song")
-        elif query.isdigit():
+        if query.isdigit():
             return("genius")
         elif query.startswith("spotify:"):
             return("spotify")
         else:
-            raise(f"Unknown type for query: {query}")
+            return("search")
 
     def get_spotify_type(self):
         """
