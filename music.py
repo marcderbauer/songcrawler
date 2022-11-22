@@ -98,7 +98,74 @@ class Music(ABC):
             result = Song.get_lyrics(request.query)
                 # TODO: figure out how to save this
             
+    @classmethod
+    def search(cls, query, type, region="US"):
+        """
+        Searches spotify 
+        """
+        query_dict = Music.split_search(query)
+        
+        if "search" in query_dict:
+            print(f"No query parameters passed. Searching for track {query_dict['query']} ...\n")
+            songs = spotify.search(q=query_dict["query"], market=region)
+            song = songs['tracks']['items'][0] # Picking first song, TODO: make interactive at some point
+            uri = song['uri']
+            song_name = song['name']
+            album_name = song['album']['name']
+            artist_name = song['artists'][0]['name']
+            print_string = f"""
+                song:   {song_name}
+                album:  {album_name}
+                artist: {artist_name}
+                uri:    {uri}
+                """ 
+            print(print_string)
+            return uri
 
+        elif "track" in query_dict:
+            songs = spotify.search(q=query_dict["query"], type="track", market=region)
+            print(f"Retrieved song {songs['tracks']['items'][0]['name']}")
+            return songs['tracks']['items'][0]['uri']
+            
+        elif "album" in query_dict:
+            pass
+        elif "playlist" in query_dict:
+            pass
+        elif "artist" in query_dict:
+            pass
+        else:
+            raise Exception(f"Invalid query dict passed to Music.search():\n{query_dict}")
+
+        return spotify.search(query, type=type, market=region)
+    
+    @classmethod
+    def search_dict(cls, sd, region="US"):
+        if "artist" in sd.keys():
+            result = spotify.search(sd["artist"], type="artist", market=region)
+            artist_uri = ['artists']['items'][0]['uri']
+
+    @classmethod
+    def split_search(cls, s):
+        """
+        Takes a search string and splits it by keywords
+        Returns a dictionary {keyword: value}
+        If no keywords are found it returns a dictionary with a single element "search" and the query as value.
+        d["query"] is the original query s.
+        Loosely based on this:
+        https://stackoverflow.com/questions/61056453/split-string-based-on-given-words-from-list
+        """
+        l = ["artist", "track", "album", "playlist"]
+        s = re.sub(":", "", s)
+        m = re.split(rf"({'|'.join(l)})", s, re.I)
+        m = [i.strip() for i in m if i] # removes empty strings and whitespaces
+        keyword = m[::2]
+        value = m[1::2]
+        if value:
+            d = dict(zip(keyword, value))
+        else:
+            d = {"search":keyword[0]}
+        d["query"] = s
+        return d
 
 # ########################################################################################   
 #                                 ____                    
