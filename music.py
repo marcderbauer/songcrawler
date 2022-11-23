@@ -99,7 +99,7 @@ class Music(ABC):
                 # TODO: figure out how to save this
             
     @classmethod
-    def search(cls, query, type, region="US"):
+    def search(cls, query, region="US"):
         """
         Searches spotify 
         """
@@ -124,25 +124,33 @@ class Music(ABC):
 
         elif "track" in query_dict:
             songs = spotify.search(q=query_dict["query"], type="track", market=region)
-            print(f"Retrieved song {songs['tracks']['items'][0]['name']}")
+            print(f"Retrieved URI of song \"{songs['tracks']['items'][0]['name']}\"")
             return songs['tracks']['items'][0]['uri']
             
         elif "album" in query_dict:
-            pass
+            albums = spotify.search(q=query_dict["query"], type="album", market=region)
+            print(f"Retrieved URI of album \"{albums['albums']['items'][0]['name']}\"")
+            return albums['albums']['items'][0]['uri']
+
         elif "playlist" in query_dict:
-            pass
+            playlists = spotify.search(q=query_dict["query"], type="playlist", market=region)
+            print(f"Retrieved URI of playlist \"{playlists['playlists']['items'][0]['name']}\"")
+            return playlists['playlists']['items'][0]['uri']
+
         elif "artist" in query_dict:
-            pass
+            artists = spotify.search(q=query_dict["query"], type="artist", market=region)
+            print(f"Retrieved URI of artist \"{artists['artists']['items'][0]['name']}\"")
+            return artists['artists']['items'][0]['uri']
         else:
             raise Exception(f"Invalid query dict passed to Music.search():\n{query_dict}")
 
-        return spotify.search(query, type=type, market=region)
+        return #spotify.search(query, type=type, market=region)
     
-    @classmethod
-    def search_dict(cls, sd, region="US"):
-        if "artist" in sd.keys():
-            result = spotify.search(sd["artist"], type="artist", market=region)
-            artist_uri = ['artists']['items'][0]['uri']
+    # @classmethod
+    # def search_dict(cls, sd, region="US"):
+    #     if "artist" in sd.keys():
+    #         result = spotify.search(sd["artist"], type="artist", market=region)
+    #         artist_uri = ['artists']['items'][0]['uri']
 
     @classmethod
     def split_search(cls, s):
@@ -155,7 +163,7 @@ class Music(ABC):
         https://stackoverflow.com/questions/61056453/split-string-based-on-given-words-from-list
         """
         l = ["artist", "track", "album", "playlist"]
-        s = re.sub(":", "", s)
+        s = re.sub(":", " ", s)
         m = re.split(rf"({'|'.join(l)})", s, re.I)
         m = [i.strip() for i in m if i] # removes empty strings and whitespaces
         keyword = m[::2]
@@ -382,7 +390,6 @@ class MusicCollection(Music):
                     print(f"Lyrics for {song_name} missing.")
                     continue
                 collection.songs[song_name].lyrics = lyric_json[song_name]
-
 
             return collection
 
