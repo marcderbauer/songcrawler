@@ -9,7 +9,7 @@ from multiprocessing import Pool
 from abc import ABC, abstractmethod
 from spotipy.oauth2 import SpotifyClientCredentials
 from copy import deepcopy
-from utils import delete_dir, file_empty, overwrite_dir, Path
+from utils import delete_dir, file_empty, overwrite_dir, Path, get_int_input
 import glob
 
 ##########################################################################################
@@ -97,6 +97,27 @@ class Music(ABC):
         else:
             result = Song.get_lyrics(request.query)
                 # TODO: figure out how to save this
+    
+    @classmethod
+    def _pretty_print_search(cls, item_list, max_len=35, truncate_uri = False):
+        """
+        Method to pretty print results from the search output
+        """
+
+        for l in item_list:
+            l = [entry[:max_len] for entry in l]
+            if truncate_uri:
+                l = l[:-1]
+    
+        dashes = [f'{"-"*max_len}'] * len(item_list[0])
+        item_list.insert(1, dashes)
+
+        widths = [max(map(len, col)) for col in zip(*item_list)]
+        for i, row in enumerate(item_list):
+            print(f"[{i-2}]" if i >=2 else "   ", end= "    ")
+            print("  ".join((val.ljust(width)[:max_len] for val, width in zip(row, widths))))
+
+        print("\n") 
             
     @classmethod
     def search(cls, query, region="US"):
@@ -105,7 +126,7 @@ class Music(ABC):
         """
         query_dict = Music.split_search(query)
         
-        if "search" in query_dict:
+        if False: #"search" in query_dict:
             print(f"No query parameters passed. Searching for track {query_dict['query']} ...\n")
             songs = spotify.search(q=query_dict["query"], market=region)
             song = songs['tracks']['items'][0] # Picking first song, TODO: make interactive at some point
@@ -120,6 +141,25 @@ class Music(ABC):
                 uri:    {uri}
                 """ 
             print(print_string)
+            return uri
+
+        if "search" in query_dict:
+            print(f"No query parameters passed. Searching for track \"{query_dict['query']} ...\"\n")
+            songs = spotify.search(q=query_dict["query"], market=region)
+            search_result = [["name", "album", "artist_name"]]
+            for song in songs['tracks']['items']:
+                search_result.append(
+                    [
+                        song['name'],
+                        song['album']['name'],
+                        song['artists'][0]['name']
+                    ]
+                )
+            Music._pretty_print_search(search_result, truncate_uri=True)
+
+            index = get_int_input(num_results=len(search_result))
+            uri = songs['tracks']['items'][index]['uri']
+
             return uri
 
         elif "track" in query_dict:
@@ -292,7 +332,7 @@ class Song(Music):
             else:
                 album.songs[self.song_name] = self
         else:
-            album = Album(uri=None, album_name=self.album_name, artist_name=self.artist_name)
+            album = Album(uri=None, album_name=self.album_name, artist_name=self.artist_name, songs={self.song_name:self})
         
         # write album to file. Call album.save for this 
         album.save(folder=folder, filetype=filetype, overwrite=overwrite)
