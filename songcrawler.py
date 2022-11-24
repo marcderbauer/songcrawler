@@ -1,5 +1,6 @@
-from music import Song, Album, Playlist, Artist, Music
-import re
+from music import Song, Album, Playlist, Artist, Music, MusicCollection
+from utils import Path
+import os
 
 # ASCII Art: https://patorjk.com/software/taag/#p=display&v=0&f=Standard
 ##########################################################################################
@@ -39,7 +40,25 @@ class Songcrawler():
         r = Request(query, self)
         result = Request.make_request(r)
 
-        if isinstance(result, Artist):
+        if isinstance(result, Song):
+
+            path = Path(folder=self.folder, artist=result.artist_name, album=result.album_name)
+            filepath = path.csv if self.filetype == ".csv" else path.json
+
+            if os.path.exists(filepath):
+                album = MusicCollection.from_file(filepath, Class=Album)
+                if result.song_name in album.songs.keys() and not self.overwrite:
+                    print(f"\nSong \"{result.song_name}\" exists already.\nPlease use the --overwrite flag to save it.\n")
+                    quit()
+                else:
+                    album.songs[result.song_name] = self
+            else:
+                album = Album(**result.to_album_dict())
+
+            album = Album(**result.to_album_dict())
+            album.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite)
+
+        elif isinstance(result, Artist):
             result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
                          features_wanted=self.features_wanted, overwrite=self.overwrite, limit=self.limit)
 
@@ -47,6 +66,7 @@ class Songcrawler():
             result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite, lyrics_requested=lyrics_requested, 
                         features_wanted=self.features_wanted)
 
+        # TODO: Might aswell specify as album is the only else. Better for error handling too
         else:
             result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite)
         return result
@@ -59,7 +79,7 @@ class Songcrawler():
     ########################################################################################
 
     @classmethod
-    def make_request(request):
+    def make_request(cls, request):
         if request.type == "spotify": # if request.spotify_type ? 
             match request.get_spotify_type():
                 case "track":
