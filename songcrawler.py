@@ -1,4 +1,5 @@
 from music import Music, Artist, Playlist
+import re
 
 # ASCII Art: https://patorjk.com/software/taag/#p=display&v=0&f=Standard
 ##########################################################################################
@@ -34,6 +35,7 @@ class Songcrawler():
         """
         if not lyrics_requested:
             lyrics_requested = self.lyrics_requested
+
         r = Request(query, self)
         result = Music.request(r)
 
@@ -67,10 +69,16 @@ class Request(Songcrawler):
                 setattr(self, key, val)
         else:
             super().__init__()
+
         # TODO: add param for: genius_id
-        self.query = query
         self.type = self.get_request_type(query)
-        
+
+        if self.type == "search":
+            query = Music.search(query)
+            self.type = self.get_request_type(query)
+
+        self.query = query
+
         if self.type == "spotify":
             self.spotify_type = self.get_spotify_type()
         else:
@@ -80,14 +88,12 @@ class Request(Songcrawler):
         """
         Differentiates whether the query is a genius_id, spotify_uri, or songname
         """
-        if isinstance(query, list):
-            return("song")
-        elif query.isdigit():
+        if query.isdigit():
             return("genius")
         elif query.startswith("spotify:"):
             return("spotify")
         else:
-            raise(f"Unknown type for query: {query}")
+            return("search")
 
     def get_spotify_type(self):
         """
