@@ -99,15 +99,13 @@ class Music(ABC):
                 # TODO: figure out how to save this
     
     @classmethod
-    def _pretty_print_search(cls, item_list, max_len=35, truncate_uri = False):
+    def _pretty_print_search(cls, item_list, max_len=35):
         """
         Method to pretty print results from the search output
         """
 
         for l in item_list:
             l = [entry[:max_len] for entry in l]
-            if truncate_uri:
-                l = l[:-1]
     
         dashes = [f'{"-"*max_len}'] * len(item_list[0])
         item_list.insert(1, dashes)
@@ -125,28 +123,13 @@ class Music(ABC):
         Searches spotify 
         """
         query_dict = Music.split_search(query)
-        
-        if False: #"search" in query_dict:
-            print(f"No query parameters passed. Searching for track {query_dict['query']} ...\n")
-            songs = spotify.search(q=query_dict["query"], market=region)
-            song = songs['tracks']['items'][0] # Picking first song, TODO: make interactive at some point
-            uri = song['uri']
-            song_name = song['name']
-            album_name = song['album']['name']
-            artist_name = song['artists'][0]['name']
-            print_string = f"""
-                song:   {song_name}
-                album:  {album_name}
-                artist: {artist_name}
-                uri:    {uri}
-                """ 
-            print(print_string)
-            return uri
 
-        if "search" in query_dict:
-            print(f"No query parameters passed. Searching for track \"{query_dict['query']} ...\"\n")
+        if "search" in query_dict or "track" in query_dict:
+            if "search" in query_dict:
+                print(f"No query parameters passed. Searching for track \"{query_dict['query']} ...\"\n")
+
             songs = spotify.search(q=query_dict["query"], market=region)
-            search_result = [["name", "album", "artist_name"]]
+            search_result = [["Name", "Album", "Artist"]]
             for song in songs['tracks']['items']:
                 search_result.append(
                     [
@@ -155,32 +138,64 @@ class Music(ABC):
                         song['artists'][0]['name']
                     ]
                 )
-            Music._pretty_print_search(search_result, truncate_uri=True)
+            Music._pretty_print_search(search_result)
 
             index = get_int_input(num_results=len(search_result))
             uri = songs['tracks']['items'][index]['uri']
 
             return uri
-
-        elif "track" in query_dict:
-            songs = spotify.search(q=query_dict["query"], type="track", market=region)
-            print(f"Retrieved URI of song \"{songs['tracks']['items'][0]['name']}\"")
-            return songs['tracks']['items'][0]['uri']
             
         elif "album" in query_dict:
             albums = spotify.search(q=query_dict["query"], type="album", market=region)
-            print(f"Retrieved URI of album \"{albums['albums']['items'][0]['name']}\"")
-            return albums['albums']['items'][0]['uri']
+            search_result = [["Name", "Artist"]]
+            for album in albums['albums']['items']:
+                search_result.append(
+                    [
+                        album['name'],
+                        album['artists'][0]['name']
+                    ]
+                )
+            Music._pretty_print_search(search_result)
+
+            index = get_int_input(num_results=len(search_result))
+            uri = albums['albums']['items'][index]['uri']
+
+            return uri
 
         elif "playlist" in query_dict:
             playlists = spotify.search(q=query_dict["query"], type="playlist", market=region)
-            print(f"Retrieved URI of playlist \"{playlists['playlists']['items'][0]['name']}\"")
-            return playlists['playlists']['items'][0]['uri']
+            search_result = [["Name", "User"]]
+            for playlist in playlists['playlists']['items']:
+                search_result.append(
+                    [
+                        playlist['name'],
+                        playlist['owner']['display_name']
+                    ]
+                )
+            Music._pretty_print_search(search_result)
+
+            index = get_int_input(num_results=len(search_result))
+            uri = playlists['playlists']['items'][index]['uri']
+
+            return uri
 
         elif "artist" in query_dict:
             artists = spotify.search(q=query_dict["query"], type="artist", market=region)
-            print(f"Retrieved URI of artist \"{artists['artists']['items'][0]['name']}\"")
-            return artists['artists']['items'][0]['uri']
+            search_result = [["Artist", "Popularity"]]
+            for artist in artists['artists']['items']:
+                search_result.append(
+                    [
+                        artist['name'],
+                        str(artist['popularity'])
+                    ]
+                )
+            Music._pretty_print_search(search_result)
+
+            index = get_int_input(num_results=len(search_result))
+            uri = artists['artists']['items'][index]['uri']
+
+            return uri
+
         else:
             raise Exception(f"Invalid query dict passed to Music.search():\n{query_dict}")
 
