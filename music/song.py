@@ -1,6 +1,6 @@
 from music.music import Music
-from music.album import Album
-from music.music_collection import MusicCollection
+# from music.album import Album
+# from music.music_collection import MusicCollection
 from music.setup import spotify, genius
 
 from utils import Path
@@ -100,24 +100,42 @@ class Song(Music):
         return ["uri", "song_name", "album_name", "artist_name", *self.audio_features.keys(), "feature_artists", "lyrics"]
 
     # TODO: add some tests to this
-    def save(self, folder, filetype, overwrite):
-        """
-        Saves a song using the same structure used when saving albums
-        Overwrites the song if it already exists
-        Caveat: lyrics will always be appended to the end, this may mess up song order
-        """
-        path = Path(folder=folder, artist=self.artist_name, album=self.album_name)
-        filepath = path.csv if filetype == ".csv" else path.json
+    # def save(self, folder, filetype, overwrite):
+    #     """
+    #     Saves a song using the same structure used when saving albums
+    #     Overwrites the song if it already exists
+    #     Caveat: lyrics will always be appended to the end, this may mess up song order
+    #     """
+    #     path = Path(folder=folder, artist=self.artist_name, album=self.album_name)
+    #     filepath = path.csv if filetype == ".csv" else path.json
 
-        if os.path.exists(filepath):
-            album = MusicCollection.from_file(filepath, Class=Album)
-            if self.song_name in album.songs.keys() and not overwrite:
-                print(f"\nSong \"{self.song_name}\" exists already.\nPlease use the --overwrite flag to save it.\n")
-                quit()
-            else:
-                album.songs[self.song_name] = self
-        else:
-            album = Album(uri=None, album_name=self.album_name, artist_name=self.artist_name, songs={self.song_name:self})
+    #     if os.path.exists(filepath):
+    #         album = MusicCollection.from_file(filepath, Class=Album)
+    #         if self.song_name in album.songs.keys() and not overwrite:
+    #             print(f"\nSong \"{self.song_name}\" exists already.\nPlease use the --overwrite flag to save it.\n")
+    #             quit()
+    #         else:
+    #             album.songs[self.song_name] = self
+    #     else:
+    #         album = Album(uri=None, album_name=self.album_name, artist_name=self.artist_name, songs={self.song_name:self})
         
-        # write album to file. Call album.save for this 
-        album.save(folder=folder, filetype=filetype, overwrite=overwrite)
+    #     # write album to file. Call album.save for this 
+    #     album.save(folder=folder, filetype=filetype, overwrite=overwrite)
+    
+    def to_album_dict(self):
+        """
+        Returns a dictionary with all the arguments necessary to construct an Album.
+        After constructing the album, the song can easily be saved.
+
+        usage: new_album = Album(**self.to_album())
+
+        TODO: Does this handle overwrite?
+        """
+        album_dict = {
+            "uri":          None,
+            "album_name":   self.album_name,
+            "artist_name":  self.artist_name,
+            "songs_to_uri": {self.song_name:self.uri},
+            "songs":        {self.song_name:self}
+        }
+        return album_dict

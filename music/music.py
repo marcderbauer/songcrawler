@@ -1,7 +1,8 @@
-from abc import ABC, abstractmethod
 from music.setup import spotify, lyricsgenius, genius, song_regex, PARALLELIZE
-
 from utils import get_int_input
+
+from abc import ABC, abstractmethod
+import re
 
 class Music(ABC):
 
@@ -118,3 +119,26 @@ class Music(ABC):
 
         else:
             raise Exception(f"Invalid query dict passed to Music.search():\n{query_dict}")
+
+    @classmethod
+    def split_search(cls, s):
+        """
+        Takes a search string and splits it by keywords
+        Returns a dictionary {keyword: value}
+        If no keywords are found it returns a dictionary with a single element "search" and the query as value.
+        d["query"] is the original query s.
+        Loosely based on this:
+        https://stackoverflow.com/questions/61056453/split-string-based-on-given-words-from-list
+        """
+        l = ["artist", "track", "album", "playlist"]
+        s = re.sub(":", " ", s)
+        m = re.split(rf"({'|'.join(l)})", s, re.I)
+        m = [i.strip() for i in m if i] # removes empty strings and whitespaces
+        keyword = m[::2]
+        value = m[1::2]
+        if value:
+            d = dict(zip(keyword, value))
+        else:
+            d = {"search":keyword[0]}
+        d["query"] = s
+        return d
