@@ -116,6 +116,15 @@ class Music(ABC):
             print("  ".join((val.ljust(width)[:max_len] for val, width in zip(row, widths))))
 
         print("\n") 
+    
+    @classmethod
+    def _user_select_spotify(cls, item_list, max_len):
+        """
+        Prints the first 10 search results. The user can select one of the items or type get the next batch.
+        ">/n/next" for next, "</p/previous" for previous
+        0-9 for selection
+        """
+        pass
             
     @classmethod
     def search(cls, query, region="US"):
