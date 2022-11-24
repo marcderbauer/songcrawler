@@ -208,13 +208,6 @@ class Music(ABC):
         else:
             raise Exception(f"Invalid query dict passed to Music.search():\n{query_dict}")
 
-        return #spotify.search(query, type=type, market=region)
-    
-    # @classmethod
-    # def search_dict(cls, sd, region="US"):
-    #     if "artist" in sd.keys():
-    #         result = spotify.search(sd["artist"], type="artist", market=region)
-    #         artist_uri = ['artists']['items'][0]['uri']
 
     @classmethod
     def split_search(cls, s):

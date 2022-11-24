@@ -1,0 +1,141 @@
+from music.music_collection import MusicCollection
+from music.setup import spotify
+from utils import delete_dir
+
+import glob
+import os
+import re
+
+class Album(MusicCollection):
+    def __init__(self, uri, album_name, artist_name, songs_to_uri=None, songs={}, missing_lyrics={}, collection_name=None) -> None:
+        self.uri = uri
+        self.album_name = album_name
+        self.artist_name = artist_name
+        self.songs_to_uri = songs_to_uri
+        self.songs = songs
+        self.missing_lyrics = missing_lyrics # name:uri of missing songs
+        collection_name = collection_name if collection_name else album_name
+        super().__init__(songs_to_uri=songs_to_uri, songs=songs, missing_lyrics=missing_lyrics, collection_name=collection_name)
+
+    def get_path(self, folder):
+        return super().get_path(base_folder=folder, artist_name=self.artist_name, album_name=self.album_name)
+
+    @classmethod    # TODO: from a user standpoint it would be nice to switch lyrics_requested and features wanted (order)
+    def from_spotify(cls, uri, lyrics_requested, features_wanted):
+
+        spotify_album = spotify.album(uri)
+
+        artist_name = spotify_album['artists'][0]['name']
+        album_name = spotify_album['name']
+        songs_to_uri = {entry["name"]:entry["uri"] for entry in spotify_album['tracks']['items']}
+
+        album = Album(uri = uri, album_name = album_name, artist_name = artist_name, songs_to_uri = songs_to_uri, songs={})
+        songs = album._pool(lyrics_requested=lyrics_requested, features_wanted=features_wanted)
+        album.songs.update(songs)
+    
+        return album
+
+    def _write_csv(self, path):
+        return super()._write_csv(path=path, mode="w")
+
+    def save(self, folder, filetype, overwrite):
+        path = self.get_path(folder)
+        write_allowed = self._init_files(path=path, filetype=filetype, overwrite=overwrite)
+        if write_allowed:
+            self._write(path=path, filetype=filetype)
+        delete_dir(path.temp) # TODO shouldn't be generated for Albums, need to figure out how to avoid this
+
+
+# ########################################################################################   
+#                            ____  _             _ _     _   
+#                           |  _ \| | __ _ _   _| (_)___| |_ 
+#                           | |_) | |/ _` | | | | | / __| __|
+#                           |  __/| | (_| | |_| | | \__ \ |_ 
+#                           |_|   |_|\__,_|\__, |_|_|___/\__|
+#                                          |___/                                                                
+# ########################################################################################               
+
+class Playlist(MusicCollection):
+    def __init__(self, uri, playlist_name, save_every, offset, songs_to_uri=None, songs={}, missing_lyrics={}, songs_to_uri_all={}, collection_name=None) -> None:
+        self.uri = uri
+        self.playlist_name = playlist_name
+        self.save_every = save_every
+        self.offset = offset
+        self.songs_to_uri = songs_to_uri
+        self.songs = songs
+        self.missing_lyrics = missing_lyrics # name:uri of missing songs
+        self.songs_to_uri_all = songs_to_uri_all
+        super().__init__(songs_to_uri=songs_to_uri, songs=songs, missing_lyrics=missing_lyrics, collection_name=playlist_name)
+
+    @classmethod
+    def from_spotify(cls, uri, save_every):
+        spotify_playlist = spotify.playlist(playlist_id=uri)
+        spotify_playlist_items = spotify.playlist_items(uri, limit=save_every)
+        playlist_name = spotify_playlist['name']
+        songs_to_uri =  {entry["track"]["name"]:entry["track"]["uri"] for entry in spotify_playlist_items['items']}
+        
+
+        playlist = Playlist(uri=uri, playlist_name=playlist_name, save_every=save_every, offset=0, 
+                            songs_to_uri=songs_to_uri, songs={}, missing_lyrics={}, songs_to_uri_all={})
+        
+        return playlist
+    
+    def get_path(self, base_folder):
+        return super().get_path(base_folder, artist_name="_Playlists", album_name=self.playlist_name)
+
+    def _combine_temp(self, path):
+        """
+        Combines the files saved in path/.tmp/ into one big playlist and writes it to a file
+        """
+        files = glob.glob(os.path.join(path, f".tmp/*{self.playlist_name}[!_lyrics]*")) #!_lyrics doesn't seem to work
+        files = [file for file in files if not re.search("_lyrics.*", file)]
+        files = sorted(files)
+
+        songs = {}
+        for file in files:
+            mc = MusicCollection.from_file(file, Playlist)
+            songs.update(mc.songs)
+        playlist_final = Playlist(uri=self.uri, playlist_name=self.playlist_name, save_every=self.save_every, offset=self.offset, songs_to_uri=self.songs_to_uri_all,
+                                    songs = songs, missing_lyrics=self.missing_lyrics, songs_to_uri_all=self.songs_to_uri_all, collection_name=self.playlist_name)
+        return playlist_final
+        
+    def _write_csv(self, path):
+        return super()._write_csv(path, mode="a")
+
+
+    def save(self, folder, filetype, overwrite, lyrics_requested, features_wanted):
+        """
+        Queries and saves songs of a playlist.
+        Songs are queried in batches of size self.save_every and saved in path/.tmp.
+        Finally they are all merged to a regular .json or .csv file
+        """
+        path = self.get_path(folder)
+        save = self._init_files(path = path, filetype=filetype, overwrite=overwrite)
+        
+        while save:
+            songs = self._pool(features_wanted=features_wanted, lyrics_requested=lyrics_requested)
+            self.songs = songs 
+            self.songs_to_uri_all.update(self.songs_to_uri)
+            
+            if filetype == ".json":
+                self._write(path=path, filetype=filetype, temp=True)
+            else:
+                self._write(path=path, filetype=filetype)
+            self._next()
+
+            if not self.songs_to_uri:
+                delete_tmp = True
+                break
+        
+        if filetype == ".json":
+            combined = self._combine_temp(path.album)
+            combined._write(path = path, filetype=filetype)
+            if delete_tmp:
+                delete_dir(path.temp)
+    
+
+    def _next(self):
+        self.offset += self.save_every
+        spotify_playlist_items = spotify.playlist_items(self.uri, limit=self.save_every, offset=self.offset) # gather the next set of tracks
+        self.songs_to_uri = {entry["track"]["name"]:entry["track"]["uri"] for entry in spotify_playlist_items['items']}
+                   

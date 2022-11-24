@@ -1,4 +1,4 @@
-from music import Music, Artist, Playlist
+from music import Song, Album, Playlist, Artist, Music
 import re
 
 # ASCII Art: https://patorjk.com/software/taag/#p=display&v=0&f=Standard
@@ -37,7 +37,7 @@ class Songcrawler():
             lyrics_requested = self.lyrics_requested
 
         r = Request(query, self)
-        result = Music.request(r)
+        result = Request.make_request(r)
 
         if isinstance(result, Artist):
             result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
@@ -50,6 +50,57 @@ class Songcrawler():
         else:
             result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite)
         return result
+
+
+    ########################################################################################
+    ########################################################################################
+    ###################### TODO ChANGE THIS METHODS NAME, MAYBE MERGE WITH ABOVE?###########
+    ########################################################################################
+    ########################################################################################
+
+    @classmethod
+    def make_request(request):
+        if request.type == "spotify": # if request.spotify_type ? 
+            match request.get_spotify_type():
+                case "track":
+                    song = Song.from_spotify(request.query, lyrics_requested=request.lyrics_requested, 
+                                features_wanted=request.features_wanted)#, genius_id=genius_id) TODO: figure out genius ID here
+                    return song
+
+                case "album":
+                    album = Album.from_spotify(request.query, request.lyrics_requested, request.features_wanted)
+                    return album
+
+                case "artist":
+                    artist = Artist.from_spotify(request.query, album_type=request.album_type, regex_filter=request.album_regex,
+                                                region=request.region, limit=request.limit)
+                    return artist
+
+                case "playlist":
+                    playlist = Playlist.from_spotify(uri=request.query, save_every=request.save_every)
+                    return playlist
+
+                case _:
+                    raise Exception(f'Unknown request type: \"{request.type}\"')
+                    
+        elif request.type == "genius":
+            result = Song.get_lyrics(genius_id=request.query)
+            print(result)
+            # TODO: Figure out how to save this
+
+        elif request.get_ids:
+            # Would make sense to move this to setup, but only really required in this specific case
+            """
+            api = lyricsgenius.API(os.environ["GENIUS_ACCESS_TOKEN"])
+            search = api.search_songs(request.query)
+            id_to_artist_song = {hit['result']['id']:(hit['result']['artist_names'], hit['result']['title']) for hit in search['hits']}
+            print(json.dumps(id_to_artist_song, indent=4, ensure_ascii=False))
+            quit()
+            """
+
+        else:
+            result = Song.get_lyrics(request.query)
+                # TODO: figure out how to save this
 
 
 
