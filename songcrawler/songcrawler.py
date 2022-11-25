@@ -38,22 +38,8 @@ class Songcrawler():
         result = self.query_spotify(request_type=request_type, query=query)
 
         # Save request
-        if isinstance(result, Song):
-            Album.save_song(result, base_folder= self.folder, filetype=self.filetype, overwrite=self.overwrite)
-
-        elif isinstance(result, Album):
-            result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite)
-
-        elif isinstance(result, Artist):
-            result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
-                         features_wanted=self.features_wanted, overwrite=self.overwrite, limit=self.limit)
-
-        elif isinstance(result, Playlist):
-            result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite, lyrics_requested=lyrics_requested, 
-                        features_wanted=self.features_wanted)
-        else:
-            raise Exception(f"Result is not of a known instance. Result type: {request_type(result)}")
-
+        self._save_result(result, lyrics_requested=lyrics_requested)
+        
         return result
 
     def query_spotify(self, request_type, query):
@@ -99,7 +85,27 @@ class Songcrawler():
             result = Song.get_lyrics(query)
                 # TODO: figure out how to save this
 
-    
+    def _save_result(self, result, lyrics_requested):
+        """
+        Calls each Music class' respecive save function
+        """
+        if isinstance(result, Song):
+            Album.save_song(result, base_folder= self.folder, filetype=self.filetype, overwrite=self.overwrite)
+
+        elif isinstance(result, Album):
+            result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite)
+
+        elif isinstance(result, Artist):
+            result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
+                         features_wanted=self.features_wanted, overwrite=self.overwrite, limit=self.limit)
+
+        elif isinstance(result, Playlist):
+            result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite, lyrics_requested=lyrics_requested, 
+                        features_wanted=self.features_wanted)
+        else:
+            raise Exception(f"Result is not of a known instance. Result type: {type(result)}")
+
+
     def get_request_type(self, query):
         """
         Differentiates whether the query is a genius_id, spotify_uri, or songname
