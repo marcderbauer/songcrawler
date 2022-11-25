@@ -61,7 +61,7 @@ class Music(ABC):
                 )
             Music._pretty_print_search(search_result)
 
-            index = get_int_input(num_results=len(search_result))
+            index = get_int_input(num_results=len(search_result)-2)
             uri = songs['tracks']['items'][index]['uri']
 
             return uri
@@ -78,7 +78,7 @@ class Music(ABC):
                 )
             Music._pretty_print_search(search_result)
 
-            index = get_int_input(num_results=len(search_result))
+            index = get_int_input(num_results=len(search_result)-2)
             uri = albums['albums']['items'][index]['uri']
 
             return uri
@@ -95,7 +95,7 @@ class Music(ABC):
                 )
             Music._pretty_print_search(search_result)
 
-            index = get_int_input(num_results=len(search_result))
+            index = get_int_input(num_results=len(search_result)-2)
             uri = playlists['playlists']['items'][index]['uri']
 
             return uri
@@ -112,7 +112,7 @@ class Music(ABC):
                 )
             Music._pretty_print_search(search_result)
 
-            index = get_int_input(num_results=len(search_result))
+            index = get_int_input(num_results=len(search_result)-2)
             uri = artists['artists']['items'][index]['uri']
 
             return uri
