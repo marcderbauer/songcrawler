@@ -33,14 +33,9 @@ class Songcrawler():
         if request_type == "search":
             query = Music.search(query)
             request_type = self.get_request_type(query)
-
-        if request_type == "spotify":
-            self.spotify_type = self.get_spotify_type()
-        else:
-            self.spotify_type = None
         
         # Query request from spotify
-        result = self.query_spotify()
+        result = self.query_spotify(request_type=request_type, query=query)
 
         # Save request
         if isinstance(result, Song):
@@ -61,37 +56,36 @@ class Songcrawler():
 
         return result
 
-    @classmethod
-    def query_spotify(cls, request):
-        if request.type == "spotify":
-            match request.get_spotify_type():
+    def query_spotify(self, request_type, query):
+        if request_type == "spotify":
+            match self.get_spotify_type(query=query):
                 case "track":
-                    song = Song.from_spotify(request.query, lyrics_requested=request.lyrics_requested, 
-                                features_wanted=request.features_wanted)#, genius_id=genius_id) TODO: figure out genius ID here
+                    song = Song.from_spotify(query, lyrics_requested=self.lyrics_requested, 
+                                features_wanted=self.features_wanted)#, genius_id=genius_id) TODO: figure out genius ID here
                     return song
 
                 case "album":
-                    album = Album.from_spotify(request.query, request.lyrics_requested, request.features_wanted)
+                    album = Album.from_spotify(query, self.lyrics_requested, self.features_wanted)
                     return album
 
                 case "artist":
-                    artist = Artist.from_spotify(request.query, album_type=request.album_type, regex_filter=request.album_regex,
-                                                region=request.region, limit=request.limit)
+                    artist = Artist.from_spotify(query, album_type=self.album_type, regex_filter=self.album_regex,
+                                                region=self.region, limit=self.limit)
                     return artist
 
                 case "playlist":
-                    playlist = Playlist.from_spotify(uri=request.query, save_every=request.save_every)
+                    playlist = Playlist.from_spotify(uri=query, save_every=self.save_every)
                     return playlist
 
                 case _:
-                    raise Exception(f'Unknown request type: \"{request.type}\"')
+                    raise Exception(f'Unknown request type: \"{request_type}\"')
                     
-        elif request.type == "genius":
-            result = Song.get_lyrics(genius_id=request.query)
+        elif request_type == "genius":
+            result = Song.get_lyrics(genius_id=query)
             print(result)
             # TODO: Figure out how to save this
 
-        elif request.get_ids:
+        elif self.get_ids:
             # Would make sense to move this to setup, but only really required in this specific case
             """
             api = lyricsgenius.API(os.environ["GENIUS_ACCESS_TOKEN"])
@@ -102,7 +96,7 @@ class Songcrawler():
             """
 
         else:
-            result = Song.get_lyrics(request.query)
+            result = Song.get_lyrics(query)
                 # TODO: figure out how to save this
 
     
@@ -117,9 +111,9 @@ class Songcrawler():
         else:
             return("search")
 
-    def get_spotify_type(self):
+    def get_spotify_type(self, query):
         """
-        Returns the type of resource the self.query requests i.e. song, album, artist, playlist
+        Returns the type of resource the query requests i.e. song, album, artist, playlist
         """
-        uri = self.query.split(":")[1]    
+        uri = query.split(":")[1]    
         return uri
