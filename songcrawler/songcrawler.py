@@ -1,5 +1,4 @@
-from music import Song, Album, Playlist, Artist
-from songcrawler.request import Request
+from music import Song, Album, Playlist, Artist, Music
 
 
 class Songcrawler():
@@ -24,12 +23,26 @@ class Songcrawler():
         Make a request for a song, album, artist or playlist.
         Returns the spotify statistics and by default also the lyrics
         """
+
+        # Handle request
         if not lyrics_requested:
-            lyrics_requested = self.lyrics_requested
+            lyrics_requested = self.lyrics_requested # global override in case not specified
 
-        r = Request(query, self)
-        result = Request.query_result(r)
+        request_type = self.get_request_type(query)
 
+        if request_type == "search":
+            query = Music.search(query)
+            request_type = self.get_request_type(query)
+
+        if request_type == "spotify":
+            self.spotify_type = self.get_spotify_type()
+        else:
+            self.spotify_type = None
+        
+        # Query request from spotify
+        result = self.query_spotify()
+
+        # Save request
         if isinstance(result, Song):
             Album.save_song(result, base_folder= self.folder, filetype=self.filetype, overwrite=self.overwrite)
 
@@ -44,20 +57,13 @@ class Songcrawler():
             result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite, lyrics_requested=lyrics_requested, 
                         features_wanted=self.features_wanted)
         else:
-            raise Exception(f"Result is not of a known instance. Result type: {type(result)}")
+            raise Exception(f"Result is not of a known instance. Result type: {request_type(result)}")
 
         return result
 
-
-    ########################################################################################
-    ########################################################################################
-    ###################### TODO ChANGE THIS METHODS NAME, MAYBE MERGE WITH ABOVE?###########
-    ########################################################################################
-    ########################################################################################
-
     @classmethod
-    def query_result(cls, request):
-        if request.type == "spotify": # if request.spotify_type ? 
+    def query_spotify(cls, request):
+        if request.type == "spotify":
             match request.get_spotify_type():
                 case "track":
                     song = Song.from_spotify(request.query, lyrics_requested=request.lyrics_requested, 
@@ -99,3 +105,21 @@ class Songcrawler():
             result = Song.get_lyrics(request.query)
                 # TODO: figure out how to save this
 
+    
+    def get_request_type(self, query):
+        """
+        Differentiates whether the query is a genius_id, spotify_uri, or songname
+        """
+        if query.isdigit():
+            return("genius")
+        elif query.startswith("spotify:"):
+            return("spotify")
+        else:
+            return("search")
+
+    def get_spotify_type(self):
+        """
+        Returns the type of resource the self.query requests i.e. song, album, artist, playlist
+        """
+        uri = self.query.split(":")[1]    
+        return uri
