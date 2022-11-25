@@ -1,7 +1,8 @@
 from music.music_collection import MusicCollection
 from music.setup import spotify
 from music.song import Song
-from utils import delete_dir, Path
+from songcrawler.utils import delete_dir
+from songcrawler.path import Path
 
 import glob
 import os

@@ -1,16 +1,6 @@
-from music import Song, Album, Playlist, Artist, Music, MusicCollection
-from utils import Path
-import os
+from music import Song, Album, Playlist, Artist
+from songcrawler.request import Request
 
-# ASCII Art: https://patorjk.com/software/taag/#p=display&v=0&f=Standard
-##########################################################################################
-#                 ____                                            _           
-#                / ___|  ___  _ __   __ _  ___ _ __ __ ___      _| | ___ _ __ 
-#                \___ \ / _ \| '_ \ / _` |/ __| '__/ _` \ \ /\ / / |/ _ \ '__|
-#                 ___) | (_) | | | | (_| | (__| | | (_| |\ V  V /| |  __/ |   
-#                |____/ \___/|_| |_|\__, |\___|_|  \__,_| \_/\_/ |_|\___|_|   
-#                                  |___/                                                                              
-# ########################################################################################  
 
 class Songcrawler():
     def __init__(self, lyrics_requested=True, filetype="json", region="US", folder="data", overwrite=False, limit=50, album_type="album", save_every=50, get_ids=False) -> None:
@@ -109,53 +99,3 @@ class Songcrawler():
             result = Song.get_lyrics(request.query)
                 # TODO: figure out how to save this
 
-
-
-# ########################################################################################   
-#                            ____                            _   
-#                           |  _ \ ___  __ _ _   _  ___  ___| |_ 
-#                           | |_) / _ \/ _` | | | |/ _ \/ __| __|
-#                           |  _ <  __/ (_| | |_| |  __/\__ \ |_ 
-#                           |_| \_\___|\__, |\__,_|\___||___/\__|
-#                                         |_|                    
-# ########################################################################################     
-
-class Request(Songcrawler):
-    def __init__(self, query: str, parent:Songcrawler) -> None:
-        if parent:
-            for key, val in vars(parent).items():
-                setattr(self, key, val)
-        else:
-            super().__init__()
-
-        # TODO: add param for: genius_id
-        self.type = self.get_request_type(query)
-
-        if self.type == "search":
-            query = Music.search(query)
-            self.type = self.get_request_type(query)
-
-        self.query = query
-
-        if self.type == "spotify":
-            self.spotify_type = self.get_spotify_type()
-        else:
-            self.spotify_type = None
-    
-    def get_request_type(self, query):
-        """
-        Differentiates whether the query is a genius_id, spotify_uri, or songname
-        """
-        if query.isdigit():
-            return("genius")
-        elif query.startswith("spotify:"):
-            return("spotify")
-        else:
-            return("search")
-
-    def get_spotify_type(self):
-        """
-        Returns the type of resource the self.query requests i.e. song, album, artist, playlist
-        """
-        uri = self.query.split(":")[1]    
-        return uri

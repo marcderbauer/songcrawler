@@ -1,5 +1,5 @@
-from music.setup import spotify, lyricsgenius, genius, song_regex, PARALLELIZE
-from utils import get_int_input
+from music.setup import spotify
+from songcrawler.utils import get_int_input
 
 from abc import ABC, abstractmethod
 import re

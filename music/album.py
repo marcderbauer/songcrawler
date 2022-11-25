@@ -1,7 +1,8 @@
 from music.music_collection import MusicCollection
 from music.song import Song
 from music.setup import spotify
-from utils import delete_dir, Path
+from songcrawler.utils import delete_dir
+from songcrawler.path import Path
 
 class Album(MusicCollection):
     def __init__(self, uri, album_name, artist_name, songs_to_uri=None, songs={}, missing_lyrics={}, collection_name=None) -> None:

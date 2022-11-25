@@ -1,12 +1,6 @@
 from music.music import Music
-# from music.album import Album
-# from music.music_collection import MusicCollection
 from music.setup import spotify, genius
-
-from utils import Path
-
 import re
-import os
 
 
 class Song(Music):

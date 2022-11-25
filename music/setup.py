@@ -2,12 +2,8 @@
 import os
 import lyricsgenius
 import spotipy
-from multiprocessing import Pool
 
 from spotipy.oauth2 import SpotifyClientCredentials
-
-from utils import delete_dir, file_empty, overwrite_dir, Path, get_int_input
-import glob
 
 
 client_id = os.environ["SPOTIFY_CLIENT_ID"]

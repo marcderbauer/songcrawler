@@ -1,16 +1,18 @@
 from music.music import Music
 from music.song import Song
 from itertools import repeat
-from copy import deepcopy
 from music.setup import PARALLELIZE
 
+from songcrawler.utils import file_empty, overwrite_dir
+from songcrawler.path import Path
+
+from copy import deepcopy
 from multiprocessing import Pool
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 import os
 import json
 import csv
-from utils import Path, file_empty, overwrite_dir
 
 class MusicCollection(Music):
     def __init__(self, songs_to_uri, songs, missing_lyrics, collection_name) -> None:
