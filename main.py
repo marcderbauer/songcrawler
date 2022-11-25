@@ -4,7 +4,6 @@ from songcrawler import Songcrawler
 
 # TODO: check best practices regarding spaces / underscores
 parser = argparse.ArgumentParser(description='Gather Spotify statistics and Genius lyrics.')
-# parser.add_argument("query", nargs="+", type=str, help="Either a Spotify uri, a songname or a genius id") # Use nargs+ to query song by name and artist
 parser.add_argument("query", type=str, help="Either a Spotify uri, a songname or a genius id")
 parser.add_argument("--filetype", type=str, default=".json", help="Filetype to save output as. Possible options: .json, .csv")
 parser.add_argument("--genius", default=False, action='store_true', help="Lists alternative Genius ids when main argument is a songname")
@@ -35,15 +34,3 @@ def main():
 
 if __name__=="__main__":
     main()
-    # sc = Songcrawler()
-    # artist = sc.request("spotify:artist:0fA0VVWsXO9YnASrzqfmYu")
-    # album = sc.request("spotify:album:6dVCpQ7oGJD1oYs2fv1t5M")#, lyrics_requested=False)
-    # song = sc.request("spotify:track:5CBEzaNEuv3OO32kZoXgOX")
-    # sc.request("8150537")
-    # sc.request("spotify:album:6dVCpQ7oGJD1oYs2fv1t5M")
-    #print(artist)
-    # BFIAFL genius_ids:
-    # [8150565, 8150537, 8150538, 8099567, 8150539, 8150540, 8150541, 8150542, 8150543, 8150544, 8150545]
-
-# If it doesn't find anything then the lyrics are just empty e.g. New York City Rage Fest on Indicud
-# Would be cool if it included the song / album uri for debugging
