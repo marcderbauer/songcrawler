@@ -92,21 +92,3 @@ class Song(Music):
 
     def _get_csv_header(self):
         return ["uri", "song_name", "album_name", "artist_name", *self.audio_features.keys(), "feature_artists", "lyrics"]
-    
-    def to_album_dict(self):
-        """
-        Returns a dictionary with all the arguments necessary to construct an Album.
-        After constructing the album, the song can easily be saved.
-
-        usage: new_album = Album(**self.to_album())
-
-        TODO: Does this handle overwrite?
-        """
-        album_dict = {
-            "uri":          None,
-            "album_name":   self.album_name,
-            "artist_name":  self.artist_name,
-            "songs_to_uri": {self.song_name:self.uri},
-            "songs":        {self.song_name:self}
-        }
-        return album_dict
