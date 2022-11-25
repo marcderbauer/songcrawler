@@ -16,14 +16,10 @@ import csv
 
 class MusicCollection(Music):
     def __init__(self, songs_to_uri, songs, missing_lyrics, collection_name) -> None:
-        # Not a very nice solution, but want to keep name as self.playlist_name and self.album name
-        # TODO: currently have three attributes passed here which are unused. What to do?
-        # TODO: can this be removed?
-        if collection_name:
-            self.collection_name = collection_name
-        else:
-            pass
-            #self.collection_name = self.playlist_name if isinstance(self, Playlist) else self.album_name 
+        self.songs_to_uri = songs_to_uri
+        self.songs = songs
+        self.missing_lyrics = missing_lyrics
+        self.collection_name = collection_name
         super().__init__()
     
     @classmethod

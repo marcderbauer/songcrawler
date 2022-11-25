@@ -12,7 +12,7 @@ class Album(MusicCollection):
         self.songs_to_uri = songs_to_uri
         self.songs = songs
         self.missing_lyrics = missing_lyrics # name:uri of missing songs
-        collection_name = collection_name if collection_name else album_name
+        self.collection_name = album_name
         super().__init__(songs_to_uri=songs_to_uri, songs=songs, missing_lyrics=missing_lyrics, collection_name=collection_name)
 
     def get_path(self, folder):

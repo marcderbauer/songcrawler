@@ -18,6 +18,7 @@ class Playlist(MusicCollection):
         self.songs = songs
         self.missing_lyrics = missing_lyrics # name:uri of missing songs
         self.songs_to_uri_all = songs_to_uri_all
+        self.collection_name == playlist_name
         super().__init__(songs_to_uri=songs_to_uri, songs=songs, missing_lyrics=missing_lyrics, collection_name=playlist_name)
 
     @classmethod
