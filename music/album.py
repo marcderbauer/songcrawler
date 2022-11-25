@@ -1,7 +1,7 @@
 from music.music_collection import MusicCollection
 from music.song import Song
 from music.setup import spotify
-from utils import delete_dir
+from utils import delete_dir, Path
 
 class Album(MusicCollection):
     def __init__(self, uri, album_name, artist_name, songs_to_uri=None, songs={}, missing_lyrics={}, collection_name=None) -> None:
@@ -31,6 +31,11 @@ class Album(MusicCollection):
         album.songs.update(songs)
     
         return album
+
+    @classmethod
+    def save_song(cls, song:Song, filetype, overwrite=False, base_folder="data"):
+        path = Path(folder=base_folder, artist=song.artist_name, album=song.album_name)
+        super().save_song(song, path, filetype=filetype, overwrite=overwrite)
 
     def _write_csv(self, path):
         return super()._write_csv(path=path, mode="w")

@@ -25,9 +25,8 @@ class MusicCollection(Music):
         super().__init__()
     
     @classmethod
-    def from_file(cls, path, Class):
+    def from_file(cls, path):
         assert os.path.exists(path)
-        assert issubclass(Class, cls)
         filepath, filetype = os.path.splitext(path)
         
         if filetype == ".json":
@@ -38,7 +37,7 @@ class MusicCollection(Music):
                 songs = {name: Song(song["uri"], song["song_name"], song["album_name"], 
                         song["artist_name"], song["audio_features"]) for name,song in collection_json["songs"].items()}
                 collection_json["songs"] = songs
-                collection = Class(**collection_json)    
+                collection = cls(**collection_json)    
             
             # Lyrics
             lyric_path = filepath + f"_lyrics.json"
@@ -66,13 +65,38 @@ class MusicCollection(Music):
                     songdict = {name: value for name, value in songdict.items() if name not in features}
                     song = Song(**songdict)
                     songs[song.song_name] = song
-            collection = Class(uri=None, album_name=songdict["album_name"], artist_name=songdict["artist_name"])
+            collection = cls(uri=None, album_name=songdict["album_name"], artist_name=songdict["artist_name"])
             collection.songs = songs
             return collection
         
         else:
             raise Exception(f'Unknown file type: \"{filetype}\". Please select either \".json\" or \".csv\"')
     
+    @classmethod
+    def save_song(cls, song: Song, path:Path, filetype: str, overwrite: bool):# base_folder="data", filetype = ".json", overwrite=False, playlist_name = None): #TODO: maybe define base_folder in setup?
+        """
+        Saves a song to an album or playlist. If the album/playlist exists already it will look if the song exists and overwrite it in that case
+        """
+        if not os.path.isdir(path.album):
+            os.makedirs(path.album)
+
+        filepath = path.csv if filetype == ".csv" else path.json
+
+        if os.path.exists(filepath):
+            collection = cls.from_file(filepath)
+            collection = collection[0] if isinstance(collection, tuple) else collection # collection turns into tuple after return?
+            if song.song_name in collection.songs.keys() and not overwrite:
+                print(f"\nSong \"{song.song_name}\" exists already.\nPlease use the --overwrite flag to save it.\n")
+                quit()
+            else:
+                collection.songs[song.song_name] = song
+        else:
+            collection = cls(uri=None, album_name=song.album_name, artist_name=song.artist_name, songs={song.song_name:song})
+        
+        collection.save(folder=path.folder, filetype=filetype, overwrite=overwrite)
+        
+
+
     def _pool(self, lyrics_requested, features_wanted):
         """
         Takes a song_to_uri dict and returns {song_name: Song} 

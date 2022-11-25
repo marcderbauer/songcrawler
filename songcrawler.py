@@ -38,25 +38,13 @@ class Songcrawler():
             lyrics_requested = self.lyrics_requested
 
         r = Request(query, self)
-        result = Request.make_request(r)
+        result = Request.query_result(r)
 
         if isinstance(result, Song):
+            Album.save_song(result, base_folder= self.folder, filetype=self.filetype, overwrite=self.overwrite)
 
-            path = Path(folder=self.folder, artist=result.artist_name, album=result.album_name)
-            filepath = path.csv if self.filetype == ".csv" else path.json
-
-            if os.path.exists(filepath):
-                album = MusicCollection.from_file(filepath, Class=Album)
-                if result.song_name in album.songs.keys() and not self.overwrite:
-                    print(f"\nSong \"{result.song_name}\" exists already.\nPlease use the --overwrite flag to save it.\n")
-                    quit()
-                else:
-                    album.songs[result.song_name] = self
-            else:
-                album = Album(**result.to_album_dict())
-
-            album = Album(**result.to_album_dict())
-            album.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite)
+        elif isinstance(result, Album):
+            result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite)
 
         elif isinstance(result, Artist):
             result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
@@ -65,10 +53,9 @@ class Songcrawler():
         elif isinstance(result, Playlist):
             result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite, lyrics_requested=lyrics_requested, 
                         features_wanted=self.features_wanted)
-
-        # TODO: Might aswell specify as album is the only else. Better for error handling too
         else:
-            result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite)
+            raise Exception(f"Result is not of a known instance. Result type: {type(result)}")
+
         return result
 
 
@@ -79,7 +66,7 @@ class Songcrawler():
     ########################################################################################
 
     @classmethod
-    def make_request(cls, request):
+    def query_result(cls, request):
         if request.type == "spotify": # if request.spotify_type ? 
             match request.get_spotify_type():
                 case "track":

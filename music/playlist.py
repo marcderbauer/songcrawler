@@ -1,6 +1,7 @@
 from music.music_collection import MusicCollection
 from music.setup import spotify
-from utils import delete_dir
+from music.song import Song
+from utils import delete_dir, Path
 
 import glob
 import os
@@ -30,6 +31,11 @@ class Playlist(MusicCollection):
                             songs_to_uri=songs_to_uri, songs={}, missing_lyrics={}, songs_to_uri_all={})
         
         return playlist
+
+    @classmethod
+    def save_song(cls, song: Song, playlist_name: str, filetype: str, overwrite: bool, base_folder="data"):
+        path = Path(folder=base_folder, artist="_Playlist", album=playlist_name)
+        return super().save_song(song, path, filetype, overwrite)
     
     def get_path(self, base_folder):
         return super().get_path(base_folder, artist_name="_Playlists", album_name=self.playlist_name)
@@ -44,8 +50,8 @@ class Playlist(MusicCollection):
 
         songs = {}
         for file in files:
-            mc = MusicCollection.from_file(file, Playlist)
-            songs.update(mc.songs)
+            playlist = Playlist.from_file(file)
+            songs.update(playlist.songs)
         playlist_final = Playlist(uri=self.uri, playlist_name=self.playlist_name, save_every=self.save_every, offset=self.offset, songs_to_uri=self.songs_to_uri_all,
                                     songs = songs, missing_lyrics=self.missing_lyrics, songs_to_uri_all=self.songs_to_uri_all, collection_name=self.playlist_name)
         return playlist_final
