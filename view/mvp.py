@@ -15,6 +15,7 @@ test_list1 = ["Love Story","Cavalcovers","black midi"]
 test_list2 = ["A Tooth for an Eye", "Shaking The Habitual", "The Knife"]
 test_list3 = ["Wolf", "Cool It Down", "Yeah Yeah Yeahs"]
 test_lists = [test_list1, test_list2, test_list3]
+this_list = [['Bonus Track: This Never Happened Before (feat. Jeremy Jordan, Laura Osnes & Frank Wildhorn)', 'Bonnie & Clyde', 'Original Broadway Cast Recording'], ['Jenny from the Block (feat. Jadakiss & Styles P.) - Track Masters Remix', 'This Is Me...Then', 'Jennifer Lopez'], ['Thus', 'Thus', 'Emancipator'], ['Sleep - Bonus Track', 'Young Mountain (10th Anniversary Edition)', 'This Will Destroy You'], ['It Has To Be This Way - Platinum Mix', 'METAL GEAR RISING REVENGEANCE Vocal Tracks Selection', 'Jimmy Gnecco'], ['This Night', 'This Night', 'Giuseppe Califano'], ['They Move on Tracks of Never-Ending Light', 'S/T', 'This Will Destroy You'], ['I Luv This Shit - Remix (Bonus Track)', 'Testimony (Deluxe)', 'August Alsina'], ['This Year', 'This Year', 'Sire'], ['They Move on Tracks of Never - Ending Light', 'S / T (10th Anniversary Edition)', 'This Will Destroy You']]
 
 
 def _create_aliases() -> None:
@@ -96,12 +97,9 @@ def main() -> None:
     _create_aliases()
     _configure_widgets()
     table = Table()
-
-    # This should be moved to table.py
-    for test_list in test_lists:
-        test_list = table.add_index(test_list)
-        row = table.list_to_row(test_list, box="EMPTY")
-        table.append_row(row)
+    table.set_header(["Song", "Album", "Artist"])
+    table.append_rows(test_lists)#, box="EMPTY_VERTICAL")
+    table.append_rows(this_list)#, box="EMPTY_VERTICAL")
 
     with ptg.WindowManager() as manager:
 
@@ -131,6 +129,7 @@ def main() -> None:
 
         manager.add(
             ptg.Window(
+                table.header,
                 *table.rows,
                 overflow=ptg.Overflow.SCROLL
                 ),
