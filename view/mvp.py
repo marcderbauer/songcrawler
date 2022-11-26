@@ -3,28 +3,18 @@ from __future__ import annotations
 import sys
 
 import pytermgui as ptg
+from table import Table
 
 PALETTE_LIGHT = "#FCBA03"
 PALETTE_MID = "#8C6701"
 PALETTE_DARK = "#4D4940"
 PALETTE_DARKER = "#242321"
 
-test_dict1 = {
-    "Track":"Love Story",
-    "Album":"Cavalcovers",
-    "Artist":"black midi"
-}
-test_dict2 = {
-    "Track":"A Tooth for an Eye",
-    "Album":"Shaking The Habitual",
-    "Artist":"The Knife"
-}
-test_dict3 = {
-    "Track":"Wolf",
-    "Album":"Cool It Down",
-    "Artist":"Yeah Yeah Yeahs"
-}
-test_dicts = [test_dict1, test_dict2, test_dict3]
+
+test_list1 = ["Love Story","Cavalcovers","black midi"]
+test_list2 = ["A Tooth for an Eye", "Shaking The Habitual", "The Knife"]
+test_list3 = ["Wolf", "Cool It Down", "Yeah Yeah Yeahs"]
+test_lists = [test_list1, test_list2, test_list3]
 
 
 def _create_aliases() -> None:
@@ -62,8 +52,8 @@ def _configure_widgets() -> None:
     """
 
     ptg.boxes.DOUBLE.set_chars_of(ptg.Window)
-    ptg.boxes.ROUNDED.set_chars_of(ptg.Container)
-
+    # ptg.boxes.ROUNDED.set_chars_of(ptg.Container)
+    ptg.Splitter.set_char("separator", " ")
 
 def _define_layout() -> ptg.Layout:
     """Defines the application layout.
@@ -81,11 +71,7 @@ def _define_layout() -> ptg.Layout:
     layout.add_break()
 
     # A body slot that will fill the entire width, and the height is remaining
-    layout.add_slot("Body")
-
-    # A slot in the same row as body, using the full non-occupied height and
-    # 20% of the terminal's height.
-    # layout.add_slot("Body right", width=0.2)
+    layout.add_slot("Body") # width=0.9?
 
     layout.add_break()
 
@@ -103,16 +89,23 @@ def get_music_container(music_dict: dict) -> ptg.Container:
     c = ptg.Container(*labels, relative_width=0.7)
     return c
 
+
 def main() -> None:
     """Runs the application."""
 
     _create_aliases()
     _configure_widgets()
+    table = Table()
 
+    # This should be moved to table.py
+    for test_list in test_lists:
+        test_list = table.add_index(test_list)
+        row = table.list_to_row(test_list, box="EMPTY")
+        table.append_row(row)
 
     with ptg.WindowManager() as manager:
 
-        containers = [get_music_container(d) for d in test_dicts]
+        # containers = [get_music_container(d) for d in test_dicts]
         manager.layout = _define_layout()
 
         header = ptg.Window(
@@ -136,18 +129,15 @@ def main() -> None:
         # to "footer"
         manager.add(footer, assign="footer")
 
-        # manager.add(ptg.Window("My sidebar"), assign="body_right")
         manager.add(
             ptg.Window(
-                "My body window",
-                "",
-                ptg.Window(*containers),#ptg.Window(ptg.Container(*containers)),
+                *table.rows,
                 overflow=ptg.Overflow.SCROLL
                 ),
             assign="body",
             )
 
-    ptg.tim.print("[!gradient(210)]Goodbye!")
+    ptg.tim.print("\n[!gradient(210)]Goodbye!")
 
 
 if __name__ == "__main__":
