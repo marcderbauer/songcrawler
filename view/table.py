@@ -1,33 +1,35 @@
-from pytermgui import Container, Splitter, Label
+from pytermgui import Container, Splitter, Label, Widget, Layout
 # TODO:
 # this class should inherit from class Container, but import rows and operate on the basis of them
 
 
 class Table(Container):
-    
+
     def __init__(self, header: Container = None, rows: list[Container]=None, use_index=True, **attrs) -> None:
         self.header = None
         self.rows = []
         self.use_index = use_index
         self.index = 0
-        self.index_width = 0.1
         super().__init__(**attrs)
     
     @staticmethod
-    def list_to_row(l: list, box="EMPTY", use_index=False, index_width=None):
+    def list_to_row(l: list, box="EMPTY"):
         # TODO: if use_index: create seperate container index with width index_width, then combine by using splitter
         # seems like relative_width is not taken into account when putting the container in a splitter...
         # Maybe workaround by creating another window just for the indices?
 
         # TODO: Add text_align option
 
-        
+        # Maybe add self.set_widgets()?
+
         containers = []
         for item in l:
             c = Container(
-                    Label(str(item)),
-                    box=box,
-                    relative_width=0.1
+                    Label(
+                        str(item),
+                        parent_align=0,
+                        ),
+                    box=box
                 )
             containers.append(c)
         splitter = Splitter(*containers)
@@ -68,3 +70,9 @@ class Table(Container):
 # TODO: Try if this works. SHould work for header and rows, variable length!
 # Might have to adjust width and height
 # Also missing index -> Maybe add that to list outside of function
+
+
+
+
+
+####### Add functionality for index to append_row!

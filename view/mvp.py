@@ -17,6 +17,7 @@ test_list3 = ["Wolf", "Cool It Down", "Yeah Yeah Yeahs"]
 test_lists = [test_list1, test_list2, test_list3]
 this_list = [['Bonus Track: This Never Happened Before (feat. Jeremy Jordan, Laura Osnes & Frank Wildhorn)', 'Bonnie & Clyde', 'Original Broadway Cast Recording'], ['Jenny from the Block (feat. Jadakiss & Styles P.) - Track Masters Remix', 'This Is Me...Then', 'Jennifer Lopez'], ['Thus', 'Thus', 'Emancipator'], ['Sleep - Bonus Track', 'Young Mountain (10th Anniversary Edition)', 'This Will Destroy You'], ['It Has To Be This Way - Platinum Mix', 'METAL GEAR RISING REVENGEANCE Vocal Tracks Selection', 'Jimmy Gnecco'], ['This Night', 'This Night', 'Giuseppe Califano'], ['They Move on Tracks of Never-Ending Light', 'S/T', 'This Will Destroy You'], ['I Luv This Shit - Remix (Bonus Track)', 'Testimony (Deluxe)', 'August Alsina'], ['This Year', 'This Year', 'Sire'], ['They Move on Tracks of Never - Ending Light', 'S / T (10th Anniversary Edition)', 'This Will Destroy You']]
 
+long_list = [['TIMESINK', 'DROWN THE TRAITOR WITHIN', 'Lorn'], ['On My Mind', 'Night and Day', 'Everything But The Girl'], ['Universe', 'Anicca', 'Teebs'], ['Tell Me the Ghost', 'Tell Me the Ghost', 'Tom Gallo'], ['The Other Lover (Little Dragon & Moses Sumney)', 'The Other Lover (Little Dragon & Moses Sumney)', 'Little Dragon'], ['Summertime', 'Take Care of You / Summertime', 'Charlotte Day Wilson'], ['Whale', 'Sen Am', 'Duval Timothy'], ['太陽さん', 'マホロボシヤ', 'Ichiko Aoba'], ['Ball', 'Sen Am', 'Duval Timothy'], ['Her Revolution', 'Her Revolution / His Rope', 'Burial'], ['Lone Wolf and Cub', 'The Beyond / Where the Giants Roam', 'Thundercat'], ['West', 'Indigo', 'River Tiber'], ['cellophane', 'MAGDALENE', 'FKA twigs'], ['Flume', 'For Emma, Forever Ago', 'Bon Iver'], ['Caroline', 'Hyper Romance', 'Jadu Heart'], ['Retrograde', 'Overgrown', 'James Blake'], ['All I Need', 'Instrumentals', 'Clams Casino'], ['Pink Salt Lake', 'True Care', 'James Vincent McMorrow'], ['Agony', 'Stranger', 'Yung Lean'], ['Unmoved (A Black Woman Truth)', 'Unmoved (A Black Woman Truth)', 'Ayoni'], ['Flamenco Sketches (feat. John Coltrane, Cannonball Adderley & Bill Evans)', 'Kind Of Blue (Legacy Edition)', 'Miles Davis'], ['Keep On', 'Antiphon', 'Alfa Mist'], ['Goodbye Blue', 'Goodbye Blue', 'BADBADNOTGOOD'], ['Glide (Goodbye Blue Pt. 2)', 'Goodbye Blue', 'BADBADNOTGOOD'], ['Fall Again', 'Help', 'Duval Timothy'], ['SHINSEN', 'Sakura', 'Susumu Yokota'], ['Rare', 'Rare', 'Blake Skowron'], ['Wondering in the Woods', 'Theory of Everything', 'Isak Strand vs. TOE'], ['Please Be Naked', 'I like it when you sleep, for you are so beautiful yet so unaware of it', 'The 1975'], ['Blue Ocean Floor', 'The 20/20 Experience (Deluxe Version)', 'Justin Timberlake'], ['Make Out in My Car - Sufjan Stevens Version', 'Make Out in My Car: Chameleon Suite', 'Moses Sumney'], ['Polly', 'græ', 'Moses Sumney'], ['Death & Taxes', "Pilgrim's Paradise", 'Daniel Caesar'], ['How Was Your Day?', 'Fake It Flowers', 'beabadoobee'], ['Movement 5', 'Promises', 'Floating Points'], ["Derrick's Beard", 'DEACON', 'serpentwithfeet'], ['Alone in Kyoto', 'Talkie Walkie', 'Air'], ['Back To Mars', 'Fake It Flowers', 'beabadoobee'], ['Mashita', 'Shiroi', 'Mansur Brown'], ['I Love Sloane', "Hangin' At The Beach", 'Delroy Edwards'], ['Rain Smell', 'Cerulean', 'Baths'], ['Hall', 'Cerulean', 'Baths'], ['billboard uwu', 'DPR ARCHIVES', 'DPR CREAM'], ['Merry Christmas Mr. Lawrence', 'Merry Christmas, Mr. Lawrence', 'Ryuichi Sakamoto'], ['Dawn Chorus', 'ANIMA', 'Thom Yorke'], ['Everything In Its Right Place', 'Kid A', 'Radiohead'], ['Jesus Christ 2005 God Bless America', 'Notes On a Conditional Form', 'The 1975'], ['Avril 14th', 'Drukqs', 'Aphex Twin'], ['A Sad Song About a Girl I No Longer Know', 'Bedside Kites', 'Bedside Kites'], ['Parallel 6', 'Parallel', 'Four Tet']]
 
 def _create_aliases() -> None:
     """Creates all the TIM aliases used by the application.
@@ -98,8 +99,9 @@ def main() -> None:
     _configure_widgets()
     table = Table()
     table.set_header(["Song", "Album", "Artist"])
-    table.append_rows(test_lists)#, box="EMPTY_VERTICAL")
-    table.append_rows(this_list)#, box="EMPTY_VERTICAL")
+    table.append_rows(long_list)
+    # table.append_rows(test_lists)#, box="EMPTY_VERTICAL")
+    # table.append_rows(this_list)#, box="EMPTY_VERTICAL")
 
     with ptg.WindowManager() as manager:
 
@@ -107,7 +109,7 @@ def main() -> None:
         manager.layout = _define_layout()
 
         header = ptg.Window(
-            "[app.header] Welcome to PyTermGUI ",
+            "[app.header] SongCrawler",
             box="EMPTY",
             is_persistant=True
         )
