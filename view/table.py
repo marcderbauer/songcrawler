@@ -11,7 +11,13 @@ class Table(Container):
         self.use_index = use_index
         self.index = 0
         super().__init__(**attrs)
-    
+
+    @classmethod
+    def from_lists(cls, header: list = None, rows: list[list]=None, use_index=True, **attrs):
+        h = "x" # TODO: maybe change set_header to make_header (or just seperate method)
+        # TODO: also, when is this method called? This is before creating a table, but doesn't the view instantiate a table already?
+        # Maybe pass all the necessary lists to view, which in turn calls self.table = Table.from_lists(...)
+
     @staticmethod
     def list_to_row(l: list, box="EMPTY", index = None, is_header=False):
         """
