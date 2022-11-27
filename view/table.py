@@ -13,66 +13,75 @@ class Table(Container):
         super().__init__(**attrs)
     
     @staticmethod
-    def list_to_row(l: list, box="EMPTY"):
-        # TODO: if use_index: create seperate container index with width index_width, then combine by using splitter
-        # seems like relative_width is not taken into account when putting the container in a splitter...
-        # Maybe workaround by creating another window just for the indices?
+    def list_to_row(l: list, box="EMPTY", index = None, is_header=False):
+        """
+        Takes a list and converts it into a row which can be added to the table.
+        """
+        assert isinstance(index, None|int), "Index needs to be a valid integer or None."
 
-        # TODO: Add text_align option
-
-        # Maybe add self.set_widgets()?
-
+        align = 1 if is_header else 0
         containers = []
-        for item in l:
+
+        for item in l:   
             c = Container(
                     Label(
                         str(item),
-                        parent_align=0,
+                        parent_align=align,
                         ),
                     box=box
                 )
             containers.append(c)
+
+        # Index Container
+        if index or index == 0:
+            i = Container(
+                Label(
+                    str(index),
+                    parent_align=1
+                ),
+                box = box
+            )
+            containers.insert(0, i)
+
         splitter = Splitter(*containers)
         return splitter
     
     def get_index(self) -> int:
+        """
+        Gets current index and adds 1 to it.
+        """
         index = self.index
         self.index += 1
         return index
 
-    def add_index(self, l:list):
-        l.insert(0, str(self.get_index()))
-        return l
-    
-    def set_header(self, header: Container|list, box="EMPTY_VERTICAL"):
+    def set_header(self, header: Container|list, box="DOUBLE_BOTTOM"):
+        """
+        Sets the header of the current table given a container or list.
+        If it is handed a list it will construct the Container and before setting it to self.header.
+        """
         if isinstance(header, list):
             if self.use_index:
                 header.insert(0,"Index")
-            header = self.list_to_row(header, box=box)
+            header = self.list_to_row(header, box=box, is_header=True)
         elif not isinstance(header, Container):
             raise TypeError("Header should be eiter of type list or Container")
         self.header = header
     
     def append_row(self, row:Container|list, box="EMPTY"):
-        if isinstance(row, list):
-            if self.use_index:
-                row.insert(0,self.get_index())
+        """
+        Appends a row to the table. Either takes a Container or constructs one from a list
+        """
+        assert isinstance(row, Container|list), TypeError("Header should be eiter of type list or Container")
+        if self.use_index:
+            row = self.list_to_row(row, box=box, index=self.get_index())
+        else:
             row = self.list_to_row(row, box=box)
-        elif not isinstance(row, Container):
-            raise TypeError("Header should be eiter of type list or Container")
         self.rows.append(row)
     
     def append_rows(self, rows:list[Container]|list[list], box="EMPTY"):
-        assert len(set(map(len,rows))) == 1 # checks if all items in list are of the same length
+        """
+        Constructs and appends multiple rows to the table.
+        """
+        assert len(set(map(len,rows))) == 1, "Rows are not of equal length" # checks if all items in list are of the same length
         for row in rows:
             self.append_row(row=row, box=box)
-
-# TODO: Try if this works. SHould work for header and rows, variable length!
-# Might have to adjust width and height
-# Also missing index -> Maybe add that to list outside of function
-
-
-
-
-
-####### Add functionality for index to append_row!
