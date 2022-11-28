@@ -45,7 +45,7 @@ class Songcrawler():
                         offset -= self.page_limit
                         continue
                     self.view.fill_table(search_result.header, search_result.rows)
-                    view_return = self.view.run()
+                    view_return = self.view.display_table()
                     # scrolling 
                     if view_return in ["n","next",">","+"]:
                         offset += self.page_limit
