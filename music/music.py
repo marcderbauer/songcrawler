@@ -38,7 +38,7 @@ class Music(ABC):
         pass
             
     @classmethod
-    def search(cls, query, region="US", limit=15):
+    def search(cls, query, region="US", limit=15, offset=0):
         """
         Searches spotify 
         """
@@ -50,7 +50,7 @@ class Music(ABC):
             if "search" in query_dict:
                 print(f"No query parameters passed. Searching for track \"{query_dict['query']} ...\"\n")
 
-            songs = spotify.search(q=query_dict["query"], market=region, limit=limit)
+            songs = spotify.search(q=query_dict["query"], market=region, limit=limit, offset=offset)
             header = ["Name", "Album", "Artist"]
 
             for song in songs['tracks']['items']:
@@ -64,7 +64,7 @@ class Music(ABC):
                 uris.append(song['uri'])
                      
         elif "album" in query_dict:
-            albums = spotify.search(q=query_dict["query"], type="album", market=region, limit=limit)
+            albums = spotify.search(q=query_dict["query"], type="album", market=region, limit=limit, offset=offset)
             header = ["Name", "Artist"]
             for album in albums['albums']['items']:
                 rows.append(
@@ -76,7 +76,7 @@ class Music(ABC):
                 uris.append(album['uri'])
 
         elif "playlist" in query_dict:
-            playlists = spotify.search(q=query_dict["query"], type="playlist", market=region, limit=limit)
+            playlists = spotify.search(q=query_dict["query"], type="playlist", market=region, limit=limit, offset=offset)
             header = ["Name", "User"]
             for playlist in playlists['playlists']['items']:
                 rows.append(
@@ -88,7 +88,7 @@ class Music(ABC):
                 uris.append(playlist['uri'])
 
         elif "artist" in query_dict:
-            artists = spotify.search(q=query_dict["query"], type="artist", market=region, limit=limit)
+            artists = spotify.search(q=query_dict["query"], type="artist", market=region, limit=limit, offset=offset)
             header = ["Artist", "Popularity"]
             for artist in artists['artists']['items']:
                 rows.append(

@@ -39,7 +39,7 @@ class View():
         self.console.print(self.table)
         while(True):
             try:
-                index = self.console.input("Please select an item index or type 'quit' to exit:  ")
+                index = self.console.input("Use '>'/'<' or '+'/'-' to scroll and '(q)uit' to exit.\nPlease select an item index:  ")
                 if index in ["q", "quit", "exit"]:
                     quit()
                 elif index in ["h", "help", "p", "prev", "prev.", "previous", "<", "-", "n","next", ">", "+"]:
