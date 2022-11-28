@@ -8,34 +8,6 @@ class Music(ABC):
     @abstractmethod
     def from_spotify(uri):
         pass
-    
-    @classmethod
-    def _pretty_print_search(cls, item_list, max_len=35):
-        """
-        Method to pretty print results from the search output
-        """
-
-        for l in item_list:
-            l = [entry[:max_len] for entry in l]
-    
-        dashes = [f'{"-"*max_len}'] * len(item_list[0])
-        item_list.insert(1, dashes)
-
-        widths = [max(map(len, col)) for col in zip(*item_list)]
-        for i, row in enumerate(item_list):
-            print(f"[{i-2}]" if i >=2 else "   ", end= "    ")
-            print("  ".join((val.ljust(width)[:max_len] for val, width in zip(row, widths))))
-
-        print("\n") 
-    
-    @classmethod
-    def _user_select_spotify(cls, item_list, max_len):
-        """
-        Prints the first 10 search results. The user can select one of the items or type get the next batch.
-        ">/n/next" for next, "</p/previous" for previous
-        0-9 for selection
-        """
-        pass
             
     @classmethod
     def search(cls, query, region="US", limit=15, offset=0):
