@@ -38,7 +38,7 @@ class Music(ABC):
         pass
             
     @classmethod
-    def search(cls, query, region="US", limit=50):
+    def search(cls, query, region="US", limit=15):
         """
         Searches spotify 
         """

@@ -5,4 +5,3 @@ class SearchResult:
     header:list[str]
     rows:list[list[str]]
     uris:list
-
