@@ -1,139 +1,75 @@
-from __future__ import annotations
-import pytermgui as ptg
-from table import Table
+from rich.console import Console
+from rich.table import Table
 
-PALETTE_LIGHT = "#FCBA03"
-PALETTE_MID = "#8C6701"
-PALETTE_DARK = "#4D4940"
-PALETTE_DARKER = "#242321"
+STYLES = {
+    "Index":{
+        "justify":"center",
+        "max_width":7,
+    },
+    "Song":{
+        "justify":"left",
+        "style":"cyan"
+    },
+    "Artist":{
+        "style":"magenta"
+    },
+    "Album":{
+        "justify":"left",
+        "style":"green"
+    }
+}
 
+long_list = [['TIMESINK', 'DROWN THE TRAITOR WITHIN', 'Lorn'], ['On My Mind', 'Night and Day', 'Everything But The Girl'], ['Universe', 'Anicca', 'Teebs'], ['Tell Me the Ghost', 'Tell Me the Ghost', 'Tom Gallo'], ['The Other Lover (Little Dragon & Moses Sumney)', 'The Other Lover (Little Dragon & Moses Sumney)', 'Little Dragon'], ['Summertime', 'Take Care of You / Summertime', 'Charlotte Day Wilson'], ['Whale', 'Sen Am', 'Duval Timothy'], ['太陽さん', 'マホロボシヤ', 'Ichiko Aoba'], ['Ball', 'Sen Am', 'Duval Timothy'], ['Her Revolution', 'Her Revolution / His Rope', 'Burial'], ['Lone Wolf and Cub', 'The Beyond / Where the Giants Roam', 'Thundercat'], ['West', 'Indigo', 'River Tiber'], ['cellophane', 'MAGDALENE', 'FKA twigs'], ['Flume', 'For Emma, Forever Ago', 'Bon Iver'], ['Caroline', 'Hyper Romance', 'Jadu Heart'], ['Retrograde', 'Overgrown', 'James Blake'], ['All I Need', 'Instrumentals', 'Clams Casino'], ['Pink Salt Lake', 'True Care', 'James Vincent McMorrow'], ['Agony', 'Stranger', 'Yung Lean'], ['Unmoved (A Black Woman Truth)', 'Unmoved (A Black Woman Truth)', 'Ayoni'], ['Flamenco Sketches (feat. John Coltrane, Cannonball Adderley & Bill Evans)', 'Kind Of Blue (Legacy Edition)', 'Miles Davis'], ['Keep On', 'Antiphon', 'Alfa Mist'], ['Goodbye Blue', 'Goodbye Blue', 'BADBADNOTGOOD'], ['Glide (Goodbye Blue Pt. 2)', 'Goodbye Blue', 'BADBADNOTGOOD'], ['Fall Again', 'Help', 'Duval Timothy'], ['SHINSEN', 'Sakura', 'Susumu Yokota'], ['Rare', 'Rare', 'Blake Skowron'], ['Wondering in the Woods', 'Theory of Everything', 'Isak Strand vs. TOE'], ['Please Be Naked', 'I like it when you sleep, for you are so beautiful yet so unaware of it', 'The 1975'], ['Blue Ocean Floor', 'The 20/20 Experience (Deluxe Version)', 'Justin Timberlake'], ['Make Out in My Car - Sufjan Stevens Version', 'Make Out in My Car: Chameleon Suite', 'Moses Sumney'], ['Polly', 'græ', 'Moses Sumney'], ['Death & Taxes', "Pilgrim's Paradise", 'Daniel Caesar'], ['How Was Your Day?', 'Fake It Flowers', 'beabadoobee'], ['Movement 5', 'Promises', 'Floating Points'], ["Derrick's Beard", 'DEACON', 'serpentwithfeet'], ['Alone in Kyoto', 'Talkie Walkie', 'Air'], ['Back To Mars', 'Fake It Flowers', 'beabadoobee'], ['Mashita', 'Shiroi', 'Mansur Brown'], ['I Love Sloane', "Hangin' At The Beach", 'Delroy Edwards'], ['Rain Smell', 'Cerulean', 'Baths'], ['Hall', 'Cerulean', 'Baths'], ['billboard uwu', 'DPR ARCHIVES', 'DPR CREAM'], ['Merry Christmas Mr. Lawrence', 'Merry Christmas, Mr. Lawrence', 'Ryuichi Sakamoto'], ['Dawn Chorus', 'ANIMA', 'Thom Yorke'], ['Everything In Its Right Place', 'Kid A', 'Radiohead'], ['Jesus Christ 2005 God Bless America', 'Notes On a Conditional Form', 'The 1975'], ['Avril 14th', 'Drukqs', 'Aphex Twin'], ['A Sad Song About a Girl I No Longer Know', 'Bedside Kites', 'Bedside Kites'], ['Parallel 6', 'Parallel', 'Four Tet']]
+
+
+  
 class View():
 
-    def __init__(self) -> None:
-        self.table = Table()
+    def __init__(self, table=None, use_index = True) -> None:
+        self.table = table if table else Table(title="Songcrawler")
+        self.console = Console()
+        self.use_index = use_index
+        if use_index:
+            self.table.add_column("Index", **STYLES["Index"])
     
-    def _create_aliases(self) -> None:
-        """Creates all the TIM aliases used by the application.
-
-        Aliases should generally follow the following format:
-
-            namespace.item
-
-        For example, the title color of an app named "myapp" could be something like:
-
-            myapp.title
+    def set_table_columns(self, col_names:list[str]):
+        for col_name in col_names:
+            self.table.add_column(col_name, **STYLES[col_name])
+    
+    def add_rows(self, rows:list[list]):
+        # TODO: assert if same length in list
+        #       assert if same length as headers (maybe handeled within library?)
+        for i, row in enumerate(rows):
+            if self.use_index:
+                row.insert(0, str(i))
+            self.table.add_row(*row)
+    
+    def fill_table(self, headers:list[str], rows:list[list[str]]):
         """
-        ptg.tim.alias("app.text", "#cfc7b0")
-
-        ptg.tim.alias("app.header", f"bold @{PALETTE_MID} #d9d2bd")
-        ptg.tim.alias("app.header.fill", f"@{PALETTE_LIGHT}")
-
-        ptg.tim.alias("app.title", f"bold {PALETTE_LIGHT}")
-        ptg.tim.alias("app.button.label", f"bold @{PALETTE_DARK} app.text")
-        ptg.tim.alias("app.button.highlight", "inverse app.button.label")
-
-        ptg.tim.alias("app.footer", f"@{PALETTE_DARKER}")
-
-
-    def _configure_widgets(self) -> None:
-        """Defines all the global widget configurations.
-
-        Some example lines you could use here:
-
-            ptg.boxes.DOUBLE.set_chars_of(ptg.Window)
-            ptg.Splitter.set_char("separator", " ")
-            ptg.Button.styles.label = "myapp.button.label"
-            ptg.Container.styles.border__corner = "myapp.border"
+        Populates a table with a given list of headers and a matrix of rows
         """
+        self.set_table_columns(col_names=headers)
+        self.add_rows(rows=rows)
 
-        ptg.boxes.DOUBLE.set_chars_of(ptg.Window)
-        # ptg.boxes.ROUNDED.set_chars_of(ptg.Container)
-        ptg.Splitter.set_char("separator", " ")
-
-    def _define_layout(self) -> ptg.Layout:
-        """Defines the application layout.
-
-        Layouts work based on "slots" within them. Each slot can be given dimensions for
-        both width and height. Integer values are interpreted to mean a static width, float
-        values will be used to "scale" the relevant terminal dimension, and giving nothing
-        will allow PTG to calculate the corrent dimension.
-        """
-
-        layout = ptg.Layout()
-
-        # A header slot with a height of 1
-        layout.add_slot("Header", height=1)
-        layout.add_break()
-
-        # A body slot that will fill the entire width, and the height is remaining
-        layout.add_slot("Body") # width=0.9?
-
-        layout.add_break()
-
-        # A footer with a static height of 1
-        layout.add_slot("Footer", height=1)
-
-        return layout
-
-
-    def get_music_container(self, music_dict: dict) -> ptg.Container:
-        labels = []
-        for k, v in music_dict.items():
-            label = ptg.Label(f"{k}:   {v}",parent_align=0)
-            labels.append(label)
-        c = ptg.Container(*labels, relative_width=0.7)
-        return c
-
-
-    def start(self) -> None:
-        """Runs the application."""
-
-        self._create_aliases()
-        self._configure_widgets()
-        table = Table()
-        table.set_header(["Song", "Album", "Artist"])
-        table.append_rows(long_list)
-        # table.append_rows(test_lists)#, box="EMPTY_VERTICAL")
-        # table.append_rows(this_list)#, box="EMPTY_VERTICAL")
-
-        with ptg.WindowManager() as manager:
-
-            # containers = [get_music_container(d) for d in test_dicts]
-            manager.layout = self._define_layout()
-
-            header = ptg.Window(
-                "[app.header] SongCrawler",
-                box="EMPTY",
-                is_persistant=True
-            )
-            
-            header.styles.fill = "app.header.fill"
-
-            # Since header is the first defined slot, this will assign to the correct place
-            manager.add(header)
-
-            footer = ptg.Window(
-                ptg.Button("Quit", lambda *_: manager.stop()), 
-                box="EMPTY"
-                )
-            footer.styles.fill = "app.footer"
-
-            # Since the second slot, body was not assigned to, we need to manually assign
-            # to "footer"
-            manager.add(footer, assign="footer")
-
-            manager.add(
-                ptg.Window(
-                    table.header,
-                    *table.rows,
-                    overflow=ptg.Overflow.SCROLL
-                    ),
-                assign="body",
-                )
-
-        ptg.tim.print("\n[!gradient(210)]Goodbye!")
-
+    def run(self):
+        self.console.print(self.table)
+        while(True):
+            try:
+                index = self.console.input("Please select an item index or type 'quit' to exit:  ")
+                if index in ["q", "quit", "exit"]:
+                    quit()
+                elif index.isdigit():
+                    index = int(index)
+                    if index in range(self.table.row_count-1):
+                        return index
+                    else:
+                        print(f"Index needs to be in range [0-{self.table.row_count-1}]\n")
+                else:
+                    print(f"Index needs to be a valid Integer in range [0-{self.table.row_count-1}]\n")
+            except KeyboardInterrupt:
+                quit()
 
 if __name__ == "__main__":
-    v = View
-    v.start()
+    v = View()
+    v.fill_table(["Song", "Album", "Artist"], long_list)
+    v.run()
