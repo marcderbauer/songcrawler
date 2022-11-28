@@ -1,6 +1,5 @@
 from music.setup import spotify
-from songcrawler.utils import get_int_input
-
+from music.search_result import SearchResult
 from abc import ABC, abstractmethod
 import re
 
@@ -39,86 +38,75 @@ class Music(ABC):
         pass
             
     @classmethod
-    def search(cls, query, region="US"):
+    def search(cls, query, region="US", limit=50):
         """
         Searches spotify 
         """
         query_dict = Music.split_search(query)
+        rows = []
+        uris = []
 
         if "search" in query_dict or "track" in query_dict:
             if "search" in query_dict:
                 print(f"No query parameters passed. Searching for track \"{query_dict['query']} ...\"\n")
 
-            songs = spotify.search(q=query_dict["query"], market=region)
-            search_result = [["Name", "Album", "Artist"]]
+            songs = spotify.search(q=query_dict["query"], market=region, limit=limit)
+            header = ["Name", "Album", "Artist"]
+
             for song in songs['tracks']['items']:
-                search_result.append(
+                rows.append(
                     [
                         song['name'],
                         song['album']['name'],
                         song['artists'][0]['name']
                     ]
                 )
-            Music._pretty_print_search(search_result)
-
-            index = get_int_input(num_results=len(search_result)-2)
-            uri = songs['tracks']['items'][index]['uri']
-
-            return uri
-            
+                uris.append(song['uri'])
+                     
         elif "album" in query_dict:
-            albums = spotify.search(q=query_dict["query"], type="album", market=region)
-            search_result = [["Name", "Artist"]]
+            albums = spotify.search(q=query_dict["query"], type="album", market=region, limit=limit)
+            header = ["Name", "Artist"]
             for album in albums['albums']['items']:
-                search_result.append(
+                rows.append(
                     [
                         album['name'],
                         album['artists'][0]['name']
                     ]
                 )
-            Music._pretty_print_search(search_result)
-
-            index = get_int_input(num_results=len(search_result)-2)
-            uri = albums['albums']['items'][index]['uri']
-
-            return uri
+                uris.append(album['uri'])
 
         elif "playlist" in query_dict:
-            playlists = spotify.search(q=query_dict["query"], type="playlist", market=region)
-            search_result = [["Name", "User"]]
+            playlists = spotify.search(q=query_dict["query"], type="playlist", market=region, limit=limit)
+            header = ["Name", "User"]
             for playlist in playlists['playlists']['items']:
-                search_result.append(
+                rows.append(
                     [
                         playlist['name'],
                         playlist['owner']['display_name']
                     ]
                 )
-            Music._pretty_print_search(search_result)
-
-            index = get_int_input(num_results=len(search_result)-2)
-            uri = playlists['playlists']['items'][index]['uri']
-
-            return uri
+                uris.append(playlist['uri'])
 
         elif "artist" in query_dict:
-            artists = spotify.search(q=query_dict["query"], type="artist", market=region)
-            search_result = [["Artist", "Popularity"]]
+            artists = spotify.search(q=query_dict["query"], type="artist", market=region, limit=limit)
+            header = ["Artist", "Popularity"]
             for artist in artists['artists']['items']:
-                search_result.append(
+                rows.append(
                     [
                         artist['name'],
                         str(artist['popularity'])
                     ]
                 )
-            Music._pretty_print_search(search_result)
-
-            index = get_int_input(num_results=len(search_result)-2)
-            uri = artists['artists']['items'][index]['uri']
-
-            return uri
+                uris.append(artist['uri'])
+            # Sort by popularity
+            #uri_to_rows = {uri:rows for uri, rows in sorted((zip(uris, rows)), key=lambda x: int(x[1][1]), reverse=True)}
 
         else:
             raise Exception(f"Invalid query dict passed to Music.search():\n{query_dict}")
+        
+        search_result = SearchResult(header=header, rows=rows, uris=uris)
+        return search_result
+
 
     @classmethod
     def split_search(cls, s):

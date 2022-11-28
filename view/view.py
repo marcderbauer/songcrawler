@@ -6,16 +6,29 @@ STYLES = {
         "justify":"center",
         "max_width":7,
     },
-    "Song":{
+    "Name":{
         "justify":"left",
         "style":"cyan"
-    },
-    "Artist":{
-        "style":"magenta"
     },
     "Album":{
         "justify":"left",
         "style":"green"
+    },
+    "Playlist":{
+        "justify":"left",
+        "style":"green"
+    },
+    "Artist":{
+        "justify":"left",
+        "style":"magenta"
+    },
+    "Popularity":{
+        "justify":"left",
+        "style":"salmon1"
+    },
+    "User":{
+        "justify":"left",
+        "style":"salmon1"
     }
 }
 

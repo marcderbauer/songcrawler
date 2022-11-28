@@ -1,8 +1,8 @@
-from music import Song, Album, Playlist, Artist, Music
-
+from music import Song, Album, Playlist, Artist, Music, SearchResult
+from view import View
 
 class Songcrawler():
-    def __init__(self, lyrics_requested=True, filetype="json", region="US", folder="data", overwrite=False, limit=50, album_type="album", save_every=50, get_ids=False) -> None:
+    def __init__(self, lyrics_requested=True, filetype="json", region="US", folder="data", overwrite=False, limit=50, album_type="album", save_every=50, get_ids=False, interactive=False) -> None:
         self.lyrics_requested = lyrics_requested
         self.filetype = filetype
         self.features_wanted = ['danceability', 'energy', 'key', 'loudness',
@@ -17,6 +17,9 @@ class Songcrawler():
         self.album_type = album_type
         self.save_every = 50
         self.get_ids = get_ids
+        self.interactive = interactive
+        if interactive:
+            self.view = View()
 
     def request(self, query, lyrics_requested=None):
         """
@@ -31,16 +34,15 @@ class Songcrawler():
         request_type = self.get_request_type(query)
 
         if request_type == "search":
-
-            ####################################################################################
-            ####################################################################################
-            ########                TABLE VIEW / Interaction goes here          ################
-            ####################################################################################
-            ####################################################################################
-
-
-            query = Music.search(query)
-            request_type = self.get_request_type(query)
+            search_result = Music.search(query=query)
+            if self.interactive:
+                self.view.fill_table(search_result.header, search_result.rows)
+                index = self.view.run()
+                query = search_result.uris[index]
+                request_type = self.get_request_type(query)
+            else:
+                # TODO: Make use of this for --get_spotify_id (or whatever it's called)
+                return search_result
         
         # Query request from spotify
         result = self.query_spotify(request_type=request_type, query=query)
