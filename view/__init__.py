@@ -1,1 +1,2 @@
-from .table import Table
+from .styles import STYLES
+from .view import View
