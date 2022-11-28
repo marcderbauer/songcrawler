@@ -29,7 +29,8 @@ def main():
                     overwrite=args.overwrite,
                     album_type=args.album_type,
                     save_every=args.save_every,
-                    get_ids = args.get_ids)
+                    get_ids = args.get_ids,
+                    interactive=True)
     sc.request(args.query)
 
 if __name__=="__main__":

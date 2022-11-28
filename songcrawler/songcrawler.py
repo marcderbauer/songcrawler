@@ -1,8 +1,9 @@
-from music import Song, Album, Playlist, Artist, Music
-
+from music import Song, Album, Playlist, Artist, Music, SearchResult
+from view import View
 
 class Songcrawler():
-    def __init__(self, lyrics_requested=True, filetype="json", region="US", folder="data", overwrite=False, limit=50, album_type="album", save_every=50, get_ids=False) -> None:
+    def __init__(self, lyrics_requested=True, filetype="json", region="US", folder="data", overwrite=False, 
+                    limit=50, album_type="album", save_every=50, get_ids=False, interactive=False, page_limit=15) -> None:
         self.lyrics_requested = lyrics_requested
         self.filetype = filetype
         self.features_wanted = ['danceability', 'energy', 'key', 'loudness',
@@ -17,6 +18,10 @@ class Songcrawler():
         self.album_type = album_type
         self.save_every = 50
         self.get_ids = get_ids
+        self.page_limit = page_limit
+        self.interactive = interactive
+        if interactive:
+            self.view = View()
 
     def request(self, query, lyrics_requested=None):
         """
@@ -31,9 +36,32 @@ class Songcrawler():
         request_type = self.get_request_type(query)
 
         if request_type == "search":
-            query = Music.search(query)
-            request_type = self.get_request_type(query)
-        
+            offset = 0
+            while(True):
+                search_result = Music.search(query=query, limit=self.page_limit, offset=offset)
+                if self.interactive:
+                    # prevent scrolling past end of spotify results
+                    if len(search_result) == 0:
+                        offset -= self.page_limit
+                        continue
+                    self.view.fill_table(search_result.header, search_result.rows)
+                    view_return = self.view.run()
+                    # scrolling 
+                    if view_return in ["n","next",">","+"]:
+                        offset += self.page_limit
+                        self.view.reset()
+                    elif view_return in ["p","prev", "prev.", "previous", "<", "-"]:
+                        offset = max(0, offset-self.page_limit)
+                        self.view.reset()
+                    elif view_return in ["h", "help"]:
+                        print("Enter an index corresponding to one of the rows.\nScroll through pages with (p)revious/(n)ext, '>'/'<' or '+'/'-'")
+                    else:
+                        query = search_result.uris[view_return]
+                        request_type = self.get_request_type(query)
+                        break
+                else:
+                    return search_result
+
         # Query request from spotify
         result = self.query_spotify(request_type=request_type, query=query)
 
