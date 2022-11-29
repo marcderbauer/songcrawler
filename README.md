@@ -58,7 +58,7 @@ The `CLI` functionality is provided in the `main.py`. You can use it as follows:
 `query` is a variable, which could take the following forms:
 1. A Spotify URI (e.g. `spotify:track:2Ud3deeqLAG988pfW0Kwcl`)
 2. A Genius ID (e.g. `8150537`)
-3. Songname + Artist _(not implemented yet 15.11.22)_
+3. A freetext query
 
 There are many additional parameters and flags to adjust the program's behaviour.
 To list them all you can use:
@@ -86,9 +86,17 @@ This works the same way as with Spotify URIs:
 
 It is only supported for single songs. There is no easy way to gather the Genius ID as of now, see issue #29.
 
-#### Songname and Artist
+#### Freetext Query
 
-*TODO:* Implement
+My personal favourite feature is the freetext search. It allows for the use of keywords to help with your search.  
+  
+    python3 main.py "artist:LCD Soundsystem album:This is Happening"
+    
+Accepted keywords are <code>artist:</code>, <code>album:</code>, <code>playlist:</code> and <code>track:</code>. Songcrawler will always look for the most specific keyword given. In the query above it will request an album. If no keywords are given, it will search for a track.  
+  
+As requests can be complex and it's not always certain, which result is the best, the search mode is interactive. Songcrawler will return a table of 15 results; you can select the correct one by typing it's index. Alternatively you can gather the next set of results using `'+'/'-'` or `(p)revious/(n)ext`.
+
+![Example Query](https://github.com/marcderbauer/marcderbauer/blob/main/assets/This%20is%20Happening.gif?raw=true)
 
 ### Python Module
 
