@@ -27,6 +27,7 @@ class Artist(Music):
         """
         retrieves albums using albums_to_uri
         In a seperate method as saving albums is included in this method too (safer in case of crash)
+        If an album fails to (over)write, then the album is returned
         """
         for album_number, (name, uri) in enumerate(self.albums_to_uri.items()):
             if album_number == limit:
@@ -36,8 +37,8 @@ class Artist(Music):
             print(f"\n {'-'*100}\n Album: {name}\n")
             album = Album.from_spotify(uri=uri, lyrics_requested=lyrics_requested, features_wanted=features_wanted)
             saved = album.save(folder, filetype, overwrite=overwrite)
-            # if not saved if not saved and self._ask_overwrite(resource=album, ask_multiple=True):
-
+            if not saved: # if not saved and self._ask_overwrite(resource=album, ask_multiple=True):
+                return album
             self.albums[name] = album
             # TODO: find all missing songs across albums
    

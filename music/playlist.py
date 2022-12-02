@@ -68,8 +68,11 @@ class Playlist(MusicCollection):
         Songs are queried in batches of size self.save_every and saved in path/.tmp.
         Finally they are all merged to a regular .json or .csv file
         """
+        assert filetype in [".csv", ".json"]
         path = self.get_path(folder)
         save = self._init_files(path = path, filetype=filetype, overwrite=overwrite)
+        if not save:
+            return False
         
         while save:
             songs = self._pool(features_wanted=features_wanted, lyrics_requested=lyrics_requested)

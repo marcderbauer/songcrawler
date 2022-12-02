@@ -126,12 +126,20 @@ class Songcrawler():
                 result.save(folder=self.folder, filetype=self.filetype, overwrite=True)
 
         elif isinstance(result, Artist):
-            result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
+            failed_album = result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
                          features_wanted=self.features_wanted, overwrite=self.overwrite, limit=self.limit)
+            if failed_album and self._ask_overwrite(resource=failed_album):
+                # This will overwrite all the following albums
+                # The only way to ask overwrite on an individual album basis would be to have each of the albums queried in songcrawler
+                result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
+                         features_wanted=self.features_wanted, overwrite=True, limit=self.limit)
 
         elif isinstance(result, Playlist):
-            result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite, lyrics_requested=lyrics_requested, 
+            saved = result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite, lyrics_requested=lyrics_requested, 
                         features_wanted=self.features_wanted)
+            if not saved and self._ask_overwrite(resource=result):
+                result.save(folder=self.folder, filetype=self.filetype, overwrite=True, 
+                            lyrics_requested=lyrics_requested, features_wanted=self.features_wanted)
         else:
             raise Exception(f"Result is not of a known instance. Result type: {type(result)}")
 
