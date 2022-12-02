@@ -42,8 +42,17 @@ class Album(MusicCollection):
         return super()._write_csv(path=path, mode="w")
 
     def save(self, folder, filetype, overwrite):
+        """
+        Tries to save the album. If files exist and overwriting is not allowed returns False.
+        """
         path = self.get_path(folder)
+        # TODO: Don't create files like that....
         write_allowed = self._init_files(path=path, filetype=filetype, overwrite=overwrite)
         if write_allowed:
             self._write(path=path, filetype=filetype)
+        else:
+            return False
         delete_dir(path.temp) # TODO shouldn't be generated for Albums, need to figure out how to avoid this
+    
+    def get_name(self):
+        return self.album_name

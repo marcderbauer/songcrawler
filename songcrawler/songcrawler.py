@@ -121,7 +121,9 @@ class Songcrawler():
             Album.save_song(result, base_folder= self.folder, filetype=self.filetype, overwrite=self.overwrite)
 
         elif isinstance(result, Album):
-            result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite)
+            saved = result.save(folder=self.folder, filetype=self.filetype, overwrite=self.overwrite)
+            if not saved and self._ask_overwrite(resource=result):
+                result.save(folder=self.folder, filetype=self.filetype, overwrite=True)
 
         elif isinstance(result, Artist):
             result.get_albums(folder=self.folder, filetype=self.filetype, lyrics_requested=lyrics_requested,
@@ -151,3 +153,18 @@ class Songcrawler():
         """
         uri = query.split(":")[1]    
         return uri
+
+    def _ask_overwrite(self, resource, ask_multiple=False):
+        """
+        Asks the user if they would like to overwrite a given resource.
+        """
+        assert isinstance(resource, Music), f"resource needs to be an instance of Music.\nResource type: {type(resource)}"
+        result = self.view._overwrite_prompt(resource_name=resource.get_name(), resource_type=type(resource).__name__, ask_multiple=ask_multiple)
+        match result:
+            case "y":
+                return True
+            case "n":
+                return False
+            case "a":
+                self.overwrite = True
+                return True

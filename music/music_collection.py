@@ -152,7 +152,7 @@ class MusicCollection(Music):
         for filepath in filepaths:
             if not file_empty(path=filepath):
                 if not overwrite:
-                    print(f"\n{filepath} already exists.\n\nUse '--overwrite' to overwrite\n")
+                    # print(f"\n{filepath} already exists.\n\nUse '--overwrite' to overwrite\n")
                     return False
             open(filepath, "w").close() # overwrites all contents
         return True
@@ -196,4 +196,8 @@ class MusicCollection(Music):
 
         else:
             raise Exception(f'Unknown file type: \"{filetype}\". Please select either \".json\" or \".csv\"')
+    
+    @abstractmethod
+    def get_name(self):
+        pass
 

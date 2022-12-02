@@ -92,3 +92,6 @@ class Song(Music):
 
     def _get_csv_header(self):
         return ["uri", "song_name", "album_name", "artist_name", *self.audio_features.keys(), "feature_artists", "lyrics"]
+
+    def get_name(self):
+        return self.song_name

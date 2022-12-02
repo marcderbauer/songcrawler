@@ -98,3 +98,5 @@ class Playlist(MusicCollection):
         spotify_playlist_items = spotify.playlist_items(self.uri, limit=self.save_every, offset=self.offset) # gather the next set of tracks
         self.songs_to_uri = {entry["track"]["name"]:entry["track"]["uri"] for entry in spotify_playlist_items['items']}
                    
+    def get_name(self):
+        return self.playlist_name

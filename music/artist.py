@@ -35,7 +35,11 @@ class Artist(Music):
 
             print(f"\n {'-'*100}\n Album: {name}\n")
             album = Album.from_spotify(uri=uri, lyrics_requested=lyrics_requested, features_wanted=features_wanted)
-            album.save(folder, filetype, overwrite=overwrite)
+            saved = album.save(folder, filetype, overwrite=overwrite)
+            # if not saved if not saved and self._ask_overwrite(resource=album, ask_multiple=True):
+
             self.albums[name] = album
             # TODO: find all missing songs across albums
    
+    def get_name(self):
+        return self.artist_name

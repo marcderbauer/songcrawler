@@ -8,6 +8,10 @@ class Music(ABC):
     @abstractmethod
     def from_spotify(uri):
         pass
+
+    @abstractmethod
+    def get_name(self):
+        pass
             
     @classmethod
     def search(cls, query, region="US", limit=15, offset=0):
